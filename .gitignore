@@ -1,11 +1,8 @@
 # Dependencias
 node_modules/
-frontend/node_modules/
 
 # Build
 frontend/dist/
-backend/target/
-*.class
 
 # Logs
 *.log
@@ -27,3 +24,10 @@ logs/
 # SO
 .DS_Store
 Thumbs.db
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Documentación
+docs/

@@ -1,0 +1,4 @@
+project_id = "parcial-agile"
+
+# Las Edge Functions viven en supabase/functions/<nombre>/index.js
+# Despliegue: supabase functions deploy <nombre>

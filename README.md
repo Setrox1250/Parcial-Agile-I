@@ -1,48 +1,37 @@
 # Parcial-Agile-I — Sistema de Préstamos Multisucursal
 
-MVP del Sistema de Préstamos Multisucursal (Sprint 01). Especificación funcional: `SPRINT_01_PRESTAMOS_MULTISUCURSAL_v1.4.md`.
+MVP del Sistema de Préstamos Multisucursal (Sprint 01).
 
 ## Stack
 
 | Capa | Tecnología |
 |---|---|
 | Frontend | React + Vite + JavaScript |
-| Backend | Java 21 + Spring Boot (Maven) |
-| Base de datos | PostgreSQL |
+| Backend | Supabase Edge Functions (Deno/JS) |
+| Datos | Supabase PostgreSQL |
+| Auth | Supabase Auth |
+| Identidad DNI | Scrall `reniec_basico` |
 | Control de versiones | GitHub |
 
 ## Estructura del proyecto
 
 ```
 .
-├── frontend/          # React + Vite (JavaScript)
+├── frontend/                  # React + Vite (JavaScript)
 │   └── src/
 │       ├── components/
 │       ├── pages/
-│       ├── services/  # Cliente HTTP hacia el backend
+│       ├── services/          # Cliente HTTP / Supabase JS
 │       └── utils/
-├── backend/           # Spring Boot (Java)
-│   └── src/main/java/com/prestamos/backend/
-│       ├── config/
-│       ├── controllers/
-│       ├── services/
-│       ├── repositories/
-│       ├── models/
-│       ├── dto/
-│       └── exceptions/
-└── SPRINT_01_PRESTAMOS_MULTISUCURSAL_v1.4.md
+├── supabase/
+│   ├── config.toml
+│   ├── functions/             # Edge Functions (Deno/JS)
+│   │   └── _shared/           # Utilidades compartidas (CORS, clientes)
+│   └── migrations/            # Migraciones SQL
+└── docs/                      # Especificación (no versionada)
 ```
 
 ## Ejecución local
-
-### Backend (puerto 8080)
-
-```bash
-cd backend
-./mvnw spring-boot:run
-```
-
-Requiere una base de datos PostgreSQL (ver `backend/src/main/resources/application.properties`).
 
 ### Frontend (puerto 5173)
 
@@ -52,7 +41,17 @@ npm install
 npm run dev
 ```
 
+### Edge Functions
+
+Requiere el [Supabase CLI](https://supabase.com/docs/guides/cli):
+
+```bash
+supabase start          # stack local (Postgres + Auth +.functions)
+supabase functions serve
+```
+
 ## Notas
 
 - TEA fija 30 %, plazo 1–60 meses, cupo global S/ 10 000 por prestatario (DNI o RUC).
+- Las reglas de negocio críticas se validan en backend/BD, nunca solo en el navegador.
 - Aún no se ha implementado funcionalidad de historias de usuario: solo estructura base.
