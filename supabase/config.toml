@@ -10,6 +10,10 @@ project_id = "parcial-agile"
 verify_jwt = false
 entrypoint = './functions/health/index.js'
 
+[functions.dni-lookup]
+verify_jwt = true
+entrypoint = './functions/dni-lookup/index.js'
+
 [functions.quien-soy]
 verify_jwt = true
 entrypoint = './functions/quien-soy/index.js'
