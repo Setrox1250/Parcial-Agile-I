@@ -1,6 +1,7 @@
 
 -- 0.5.2: Tabla de perfiles de usuario
--- Roles: ADMIN (global, sucursal opcional), SUPERVISOR_FINANCIERO y CAJERO (con sucursal propia).
+-- Roles: ADMIN (global, sucursal opcional) y SUPERVISOR_FINANCIERO (con sucursal propia).
+-- El SUPERVISOR_FINANCIERO ejerce también las operaciones de caja (desembolso y cobranza).
 
 CREATE TABLE public.perfiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,8 +28,7 @@ CREATE TABLE public.perfiles (
         CHECK (
             rol IN (
                 'ADMIN',
-                'SUPERVISOR_FINANCIERO',
-                'CAJERO'
+                'SUPERVISOR_FINANCIERO'
             )
         ),
 
