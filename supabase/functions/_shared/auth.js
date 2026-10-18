@@ -19,7 +19,7 @@ export async function getUser(req) {
 export async function getPerfil(userId) {
   const { data, error } = await createAdminClient()
     .from("perfiles")
-    .select("auth_user_id, rol, sucursal_id, activo")
+    .select("auth_user_id, nombre_visible, rol, sucursal_id, activo")
     .eq("auth_user_id", userId)
     .single();
   if (error || !data) {

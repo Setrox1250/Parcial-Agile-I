@@ -10,6 +10,14 @@ project_id = "parcial-agile"
 verify_jwt = false
 entrypoint = './functions/health/index.js'
 
+[functions.quien-soy]
+verify_jwt = true
+entrypoint = './functions/quien-soy/index.js'
+
+[functions.usuarios]
+verify_jwt = true
+entrypoint = './functions/usuarios/index.js'
+
 [studio]
 port = 54329
 
