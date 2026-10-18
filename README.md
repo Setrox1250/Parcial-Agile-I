@@ -93,4 +93,4 @@ supabase functions deploy                     # todas las funciones
 - TEA fija 30 %, plazo 1–60 meses, cupo global S/ 10 000 por prestatario (DNI o RUC).
 - Roles: solo `ADMIN` y `SUPERVISOR_FINANCIERO` (este último origina préstamos).
 - Las reglas de negocio críticas se validan en backend/BD, nunca solo en el navegador.
-- Aún no se ha implementado funcionalidad de historias de usuario: solo estructura base.
+- **HU-02 (identidad DNI):** frontend con mock (`VITE_MOCK_DNI=1`) y Edge Function `dni-lookup` (Scrall `reniec_basico`, requiere secreto `SCRALL_API_KEY` y sesión de usuario; el login aún es HU-01 pendiente).

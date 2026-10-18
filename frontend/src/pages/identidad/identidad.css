@@ -1,0 +1,93 @@
+/* Página HU-02 — Identidad de prestatario */
+
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 640px;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+  text-align: left;
+}
+
+.pagina-cabecera h1 {
+  font-size: 32px;
+  letter-spacing: -0.5px;
+  margin: 0 0 8px;
+}
+
+.pagina-cabecera p {
+  margin: 0;
+  color: var(--text);
+}
+
+.dni-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.dni-form .campo {
+  width: 100%;
+  max-width: 320px;
+}
+
+.dni-form input {
+  font-family: var(--mono);
+  font-size: 20px;
+  letter-spacing: 3px;
+}
+
+.ficha {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.ficha-dato dt {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.ficha-dato dd {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.nota {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.discrepancia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(214, 69, 69, 0.06);
+  border: 1px solid rgba(214, 69, 69, 0.3);
+  border-radius: 8px;
+}
+
+.discrepancia p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-h);
+}
+
+.discrepancia .badge {
+  align-self: flex-start;
+}

@@ -24,7 +24,11 @@ export async function llamarFuncion(nombre, { method = 'GET', path = '', body } 
 
   const json = await respuesta.json().catch(() => ({}))
   if (!respuesta.ok) {
-    throw new Error(json?.error?.message ?? 'Error inesperado del servidor')
+    const error = new Error(json?.error?.message ?? 'Error inesperado del servidor')
+    // Conserva el error tipificado del backend para consumidores que lo necesiten.
+    error.status = respuesta.status
+    error.payload = json?.error ?? json
+    throw error
   }
   return json
 }

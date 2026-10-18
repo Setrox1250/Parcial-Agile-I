@@ -5,9 +5,13 @@ import { useAuth } from '../context/AuthContext'
 const MENU = {
   ADMIN: [
     { a: '/', texto: 'Inicio' },
+    { a: '/identidad', texto: 'Identidad' },
     { a: '/usuarios', texto: 'Usuarios' },
   ],
-  SUPERVISOR_FINANCIERO: [{ a: '/', texto: 'Inicio' }],
+  SUPERVISOR_FINANCIERO: [
+    { a: '/', texto: 'Inicio' },
+    { a: '/identidad', texto: 'Identidad' },
+  ],
 }
 
 export default function Layout() {

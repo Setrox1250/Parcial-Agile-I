@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Inicio from './pages/Inicio'
 import Login from './pages/Login'
 import Usuarios from './pages/Usuarios'
+import IdentidadPrestatarioPage from './pages/identidad/IdentidadPrestatarioPage'
 import './App.css'
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route index element={<Inicio />} />
+          <Route path="/identidad" element={<IdentidadPrestatarioPage />} />
           <Route
             path="/usuarios"
             element={
