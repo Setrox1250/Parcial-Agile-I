@@ -54,7 +54,7 @@ El tamaño del MVP no es un criterio de calificación: se considerará terminado
 
 | Tema | Regla vigente | Estado / observación |
 |---|---|---|
-| Identidad natural | Solo personas naturales peruanas con **DNI vigente**; excluir carné, pasaporte y extranjeros no domiciliados | `[PROF]` y **bloqueo técnico de validación automática** §3 |
+| Identidad natural | Solo personas naturales peruanas con **DNI**; excluir carné, pasaporte y extranjeros no domiciliados. Vigencia/caducidad **no** se verifica en este Sprint (Scrall Básico). | `[PROF]` y **bloqueo técnico de validación automática** §3 |
 | Identidad jurídica | Se permiten préstamos **a nombre de empresas peruanas** con RUC y representante identificado | `[PROF]`; canal de verificación de facultades por ratificar |
 | Nombres correctos | Datos del DNI recuperados de Scrall; cliente único, discrepancia bloquea originación | `[BASE]` |
 | Interés | **30 % de tasa efectiva anual (TEA) fija**: no cambia durante la vigencia del préstamo, ni por adelantar cuotas. El cronograma contratado conserva sus importes de interés programado | `[PROF]` |
@@ -80,7 +80,7 @@ El tamaño del MVP no es un criterio de calificación: se considerará terminado
 5. Extranjeros, carné de extranjería, pasaportes y otros documentos **no** habilitan créditos de persona natural.
 6. Ningún registro pasa a elegible por error, timeout o falta de respuesta del proveedor.
 
-**Brecha crítica de costo cero:** Scrall `reniec_basico` **no devuelve fecha de caducidad ni estado de vigencia del DNI**. El proveedor indica que la caducidad está en `reniec_intermedio`, fuera del único endpoint del plan básico gratuito. Por ello un resultado válido de Scrall Básico **no prueba DNI vigente**. No programar `dni_vigente=true` sin evidencia. La política de vigencia queda como **criterio bloqueante de aceptación** hasta disponer de fuente verificable autorizada o mecanismo adicional formalmente aprobado; no se presenta como implementada automáticamente a S/ 0.
+**Decisión para este Sprint:** Se utilizará **Scrall Básico** (`reniec_basico`) en su plan gratuito. Este endpoint **no devuelve fecha de caducidad ni estado de vigencia del DNI**. Por simplicidad y acorde al alcance del parcial, **se descarta la verificación de vigencia/caducidad del DNI para este Sprint**. Se validarán únicamente: formato (8 dígitos), que el resultado sea `found data`, `nuDni` coincidente, nombres/apellidos y fecha de nacimiento válidos, y que el solicitante sea mayor de 18 años. No se programará `dni_vigente=true` ni se bloqueará la originación por caducidad.
 
 ### 3.2 Persona jurídica
 
@@ -99,7 +99,7 @@ La matriz sustituye RN de v1.2 donde hay cambios (especialmente interés, gracia
 | RN-01 | La persona natural se registra con DNI peruano de 8 dígitos, único en toda la empresa. | BASE/PROF |
 | RN-02 | Nombre y apellidos del prestatario natural se obtienen de Scrall Básico, no del texto del empleado. | BASE |
 | RN-03 | Si la consulta devuelve datos incompletos, DNI distinto o error, no hay originación. | BASE |
-| RN-04 | Solo prestatarios naturales peruanos con DNI **vigente y verificable**, mayores de 18 años; no pasaportes ni carné de extranjería. | PROF; brecha §3 |
+| RN-04 | Solo prestatarios naturales peruanos con DNI verificado (Scrall Básico), mayores de 18 años. Vigencia/caducidad **no** se verifica en este Sprint; no pasaportes ni carné de extranjería. | PROF; brecha §3 |
 | RN-05 | Si el DNI ya existe y el nombre difiere, bloquear nueva originación y registrar incidencia de corrección con auditoría. | BASE |
 | RN-06 | La tasa pactada es **TEA fija del 30 % durante todo el contrato**, no un recargo único del 30 % sobre cualquier plazo. No puede cambiar por decisión del empleado, el sistema ni por adelanto de cuotas. | PROF |
 | RN-07 | Plazo de préstamo desde **1 hasta 60 meses**, inclusive; fuera de rango se rechaza. | PROF |
