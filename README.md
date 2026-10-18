@@ -88,6 +88,8 @@ supabase functions deploy                     # todas las funciones
 
 ## Notas
 
+- **Alcance:** Solo peruanos. Persona natural → DNI (8 dígitos). Empresa peruana → RUC (11 dígitos). No se aceptan extranjeros, carné de extranjería, pasaporte, VISA u otros documentos extranjeros.
+- **Moneda:** Soles (PEN) para todos los importes.
 - TEA fija 30 %, plazo 1–60 meses, cupo global S/ 10 000 por prestatario (DNI o RUC).
 - Roles: solo `ADMIN` y `SUPERVISOR_FINANCIERO` (este último origina préstamos).
 - Las reglas de negocio críticas se validan en backend/BD, nunca solo en el navegador.
