@@ -8,3 +8,10 @@ project_id = "parcial-agile"
 
 [functions.health]
 verify_jwt = false
+entrypoint = './functions/health/index.js'
+
+[studio]
+port = 54329
+
+[analytics]
+enabled = false
