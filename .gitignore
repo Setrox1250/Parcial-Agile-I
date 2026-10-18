@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+frontend/node_modules/
+
+# Build
+frontend/dist/
+backend/target/
+*.class
+
+# Logs
+*.log
+logs/
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.settings/
+.project
+.classpath
+
+# SO
+.DS_Store
+Thumbs.db
