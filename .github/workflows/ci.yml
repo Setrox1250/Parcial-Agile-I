@@ -36,5 +36,7 @@ jobs:
         run: |
           for f in supabase/functions/*/index.js; do
             echo "check $f"
-            deno check "$f"
+            deno check --node-modules-dir=none "$f"
           done
+      - name: Pruebas unitarias de helpers de auth (HU-01)
+        run: deno test --node-modules-dir=none supabase/functions/_shared/
