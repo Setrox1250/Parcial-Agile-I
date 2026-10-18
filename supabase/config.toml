@@ -1,4 +1,10 @@
+# Configuración del proyecto Supabase (Supabase CLI)
+# Documentación: https://supabase.com/docs/guides/local-development/cli/config
+
 project_id = "parcial-agile"
 
-# Las Edge Functions viven en supabase/functions/<nombre>/index.js
-# Despliegue: supabase functions deploy <nombre>
+# Edge Functions: supabase/functions/<nombre>/index.js
+# Por defecto el CLI exige JWT (verify_jwt = true); se excepciona solo lo público.
+
+[functions.health]
+verify_jwt = false
