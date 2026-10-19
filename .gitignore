@@ -31,3 +31,6 @@ supabase/.branches/
 
 # Documentación
 docs/
+
+# Artefactos de pruebas E2E (Playwright MCP)
+.playwright-mcp/

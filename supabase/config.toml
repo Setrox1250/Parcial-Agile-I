@@ -26,6 +26,10 @@ entrypoint = './functions/quien-soy/index.js'
 verify_jwt = true
 entrypoint = './functions/usuarios/index.js'
 
+[functions.ruc-lookup]
+verify_jwt = true
+entrypoint = './functions/ruc-lookup/index.js'
+
 [studio]
 port = 54329
 

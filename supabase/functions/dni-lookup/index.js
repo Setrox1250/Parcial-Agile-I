@@ -8,6 +8,9 @@ import { createAdminClient } from "../_shared/supabase.js";
 // (reniec_basico), mayoría de edad con America/Lima, ficha global única
 // y discrepancia de nombre bloqueada con incidencia de auditoría.
 //
+// HU-03: el alta es transaccional vía RPC (`registrar_persona_natural`) y toda
+// consulta queda trazada en `validaciones_identidad` (§5, RN-34).
+//
 // Secrets: SCRALL_API_KEY (plan API Básico, Authorization: Basic <clave>).
 
 const SCRALL_URL = "https://api.scrall.net/v1/reniec/basico";
@@ -19,6 +22,15 @@ const MAX_POR_VENTANA = 2;
 const marcasDeConsulta = [];
 
 const ROLES_PERMITIDOS = ["ADMIN", "SUPERVISOR_FINANCIERO"];
+
+// La correlación viaja a una columna UUID: un header corrupto no debe tumbar la
+// traza de auditoría (RN-34), así que se valida el formato y si no, se genera.
+function idCorrelacion(req) {
+  const encabezado = req.headers.get("x-correlation-id") ?? "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(encabezado)
+    ? encabezado
+    : crypto.randomUUID();
+}
 
 function excedeLimiteScrall() {
   const ahora = Date.now();
@@ -109,7 +121,8 @@ function errorDeMensajeScrall(mensaje) {
 async function consultarScrall(dni) {
   const clave = Deno.env.get("SCRALL_API_KEY");
   if (!clave) {
-    return { respuesta: null, error: errorResponse("SCRALL_API_KEY no configurada", 500, "PROVEEDOR_ERROR") };
+    console.error("dni-lookup: falta el secreto de configuración del proveedor");
+    return { respuesta: null, error: errorResponse("Servicio de identidad no disponible", 502, "PROVEEDOR_ERROR") };
   }
 
   let respuesta;
@@ -168,6 +181,25 @@ async function consultarScrall(dni) {
   return { respuesta: cuerpo, error: null };
 }
 
+// Traza de auditoría (§5): una fila por consulta, sin payload íntegro (RN-34).
+function registrarValidacion(admin, { correlacion, actor, resultado, codigoError, mensaje, numero }) {
+  return admin
+    .from("validaciones_identidad")
+    .insert({
+      proveedor: "SCRALL",
+      tipo_documento: "DNI",
+      numero_documento: numero,
+      resultado,
+      correlacion,
+      codigo_error: codigoError ?? null,
+      mensaje: mensaje ? String(mensaje).slice(0, 300) : null,
+      actor,
+    })
+    .then(({ error }) => {
+      if (error) console.error("dni-lookup: no se pudo registrar la validación", error.code);
+    });
+}
+
 Deno.serve(async (req) => {
   const preflight = handleCors(req);
   if (preflight) return preflight;
@@ -194,17 +226,29 @@ Deno.serve(async (req) => {
     return errorResponse("El DNI debe tener exactamente 8 dígitos numéricos", 400, "DNI_INVALIDO");
   }
 
+  const admin = createAdminClient();
+  const correlacion = idCorrelacion(req);
+  const actor = auth.user.id;
+  const traza = (resultado, codigoError, mensaje) =>
+    registrarValidacion(admin, { correlacion, actor, resultado, codigoError, mensaje, numero: dni });
+
   if (excedeLimiteScrall()) {
+    await traza("RATE_LIMIT", "RATE_LIMIT", "Límite local de consultas");
     return errorResponse("Demasiadas consultas seguidas. Espere 10 segundos", 429, "RATE_LIMIT");
   }
 
   const { respuesta, error: errorScrall } = await consultarScrall(dni);
-  if (errorScrall) return errorScrall;
+  if (errorScrall) {
+    await traza("ERROR_PROVEEDOR", "PROVEEDOR_ERROR", "Fallo de red o del proveedor");
+    return errorScrall;
+  }
 
   if (respuesta.message === "not found data") {
+    await traza("NO_ENCONTRADO", "DNI_NO_ENCONTRADO", respuesta.message);
     return errorResponse("El DNI no fue encontrado en RENIEC", 404, "DNI_NO_ENCONTRADO");
   }
   if (respuesta.message !== "found data") {
+    await traza("ERROR_PROVEEDOR", "PROVEEDOR_ERROR", respuesta.message);
     return errorDeMensajeScrall(respuesta.message);
   }
 
@@ -213,6 +257,7 @@ Deno.serve(async (req) => {
   // CA-04 / RN-03: nuDni coincidente y datos completos; si no, no hay originación.
   const dniDevuelto = primerValor(registro, ["nuDni", "D_NUDNI"]);
   if (dniDevuelto !== dni) {
+    await traza("INCONSISTENTE", "DNI_INCONSISTENTE", "El proveedor devolvió otro DNI");
     return errorResponse(
       "La respuesta del proveedor no coincide con el DNI consultado",
       502,
@@ -229,78 +274,65 @@ Deno.serve(async (req) => {
   );
 
   if (!nombres || !apellidoPaterno || !apellidoMaterno) {
+    await traza("ERROR_PROVEEDOR", "PROVEEDOR_ERROR", "Datos incompletos del proveedor");
     return errorResponse("Datos incompletos devueltos por el proveedor", 502, "PROVEEDOR_ERROR");
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento) ||
     Number.isNaN(Date.parse(`${fechaNacimiento}T00:00:00Z`))) {
+    await traza("ERROR_PROVEEDOR", "PROVEEDOR_ERROR", "Fecha de nacimiento inválida");
     return errorResponse("Fecha de nacimiento inválida del proveedor", 502, "PROVEEDOR_ERROR");
   }
 
   // CA-04: mayoría de edad con America/Lima; menor => no hay originación.
   const edad = edadEnLima(fechaNacimiento);
   if (edad < 18) {
+    await traza("MENOR_EDAD", "MENOR_EDAD", "La persona es menor de 18 años");
     return errorResponse("La persona es menor de 18 años y no puede ser prestatario", 422, "MENOR_EDAD");
   }
 
-  const admin = createAdminClient();
+  // Alta atómica (2.4.4): crea prestatario + personas_naturales o reutiliza la ficha.
+  const { data: filas, error: errorRpc } = await admin.rpc("registrar_persona_natural", {
+    p_dni: dni,
+    p_nombres: nombres,
+    p_apellido_paterno: apellidoPaterno,
+    p_apellido_materno: apellidoMaterno,
+    p_fecha_nacimiento: fechaNacimiento,
+    p_actor: actor,
+  });
+  const ficha = Array.isArray(filas) ? filas[0] : filas;
 
-  // Ficha única (CA-05 / RN-01): INSERT atómico; si ya existe, se reutiliza.
-  const { data: insertado, error: errorInsert } = await admin
-    .from("prestatarios")
-    .insert({
-      tipo_documento: "DNI",
-      numero_documento: dni,
-      nombres,
-      apellido_paterno: apellidoPaterno,
-      apellido_materno: apellidoMaterno,
-      fecha_nacimiento: fechaNacimiento,
-      creado_por: auth.user.id,
-    })
-    .select()
-    .maybeSingle();
-
-  if (errorInsert && errorInsert.code !== "23505") {
-    console.error("dni-lookup: fallo al crear ficha", errorInsert.code);
+  if (errorRpc || !ficha) {
+    console.error("dni-lookup: fallo al registrar/leer la ficha", errorRpc?.code);
+    await traza("ERROR_PROVEEDOR", "DB_ERROR", "No se pudo registrar la ficha");
     return errorResponse("No se pudo registrar la ficha del prestatario", 500, "DB_ERROR");
   }
 
-  if (insertado) {
-    return json({ data: armarRespuesta(insertado, "NUEVO", edad) });
+  await traza("ENCONTRADO", null, "found data");
+
+  if (ficha.creado) {
+    return json({ data: armarRespuesta(ficha, "NUEVO", dni) });
   }
 
-  // Ya existe la ficha: reutilizar o bloquear por discrepancia (RN-05).
-  const { data: existente, error: errorLectura } = await admin
-    .from("prestatarios")
-    .select("*")
-    .eq("tipo_documento", "DNI")
-    .eq("numero_documento", dni)
-    .single();
-
-  if (errorLectura || !existente) {
-    console.error("dni-lookup: fallo al leer ficha existente", errorLectura?.code);
-    return errorResponse("No se pudo leer la ficha del prestatario", 500, "DB_ERROR");
-  }
-
+  // Ficha existente: reutilizar o bloquear por discrepancia (RN-05).
   const coincide =
-    normalizarNombre(existente.nombres) === normalizarNombre(nombres) &&
-    normalizarNombre(existente.apellido_paterno) === normalizarNombre(apellidoPaterno) &&
-    normalizarNombre(existente.apellido_materno) === normalizarNombre(apellidoMaterno);
+    normalizarNombre(ficha.nombres) === normalizarNombre(nombres) &&
+    normalizarNombre(ficha.apellido_paterno) === normalizarNombre(apellidoPaterno) &&
+    normalizarNombre(ficha.apellido_materno) === normalizarNombre(apellidoMaterno);
 
   if (coincide) {
-    return json({ data: armarRespuesta(existente, "EXISTENTE", edadEnLima(existente.fecha_nacimiento)) });
+    return json({ data: armarRespuesta(ficha, "EXISTENTE", dni) });
   }
 
-  // RN-05: bloquear originación y registrar incidencia con auditoría.
   const nombreRegistrado =
-    `${existente.nombres} ${existente.apellido_paterno} ${existente.apellido_materno}`.trim();
+    `${ficha.nombres} ${ficha.apellido_paterno} ${ficha.apellido_materno}`.trim();
   const nombreConsultado = `${nombres} ${apellidoPaterno} ${apellidoMaterno}`.trim();
 
   const { error: errorIncidencia } = await admin.from("prestatario_incidencias").insert({
-    prestatario_id: existente.id,
+    prestatario_id: ficha.prestatario_id,
     tipo: "DISCREPANCIA_NOMBRE",
     nombre_registrado: nombreRegistrado,
     nombre_consultado: nombreConsultado,
-    detectado_por: auth.user.id,
+    detectado_por: actor,
   });
   if (errorIncidencia) {
     // Se bloquea igualmente; el fallo del registro no habilita originación.
@@ -316,17 +348,19 @@ Deno.serve(async (req) => {
 });
 
 // Contrato de respuesta alineado con frontend/src/services/dni.js.
-function armarRespuesta(fila, estadoFicha, edad) {
-  const apellidos = `${fila.apellido_paterno} ${fila.apellido_materno}`.trim();
+function armarRespuesta(ficha, estadoFicha, dni) {
+  const apellidos = `${ficha.apellido_paterno} ${ficha.apellido_materno}`.trim();
+  const nombres = ficha.nombres;
   return {
-    numeroDni: fila.numero_documento,
-    nombres: fila.nombres,
+    numeroDni: String(dni ?? "").trim(),
+    nombres,
     apellidos,
-    nombreCompleto: `${fila.nombres} ${apellidos}`.trim(),
-    fechaNacimiento: fila.fecha_nacimiento,
-    edad,
+    nombreCompleto: `${nombres} ${apellidos}`.trim(),
+    fechaNacimiento: ficha.fecha_nacimiento,
+    edad: edadEnLima(ficha.fecha_nacimiento),
     estadoFicha,
+    prestatarioId: ficha.prestatario_id,
     // B-01: la caducidad no es verificable con Scrall Básico; jamás true sin evidencia.
-    dniVigente: fila.dni_vigente ?? null,
+    dniVigente: null,
   };
 }

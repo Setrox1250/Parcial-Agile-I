@@ -5,6 +5,7 @@ import Inicio from './pages/Inicio'
 import Login from './pages/Login'
 import Usuarios from './pages/Usuarios'
 import IdentidadPrestatarioPage from './pages/identidad/IdentidadPrestatarioPage'
+import EmpresaPage from './pages/empresa/EmpresaPage'
 import './App.css'
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route element={<Layout />}>
           <Route index element={<Inicio />} />
           <Route path="/identidad" element={<IdentidadPrestatarioPage />} />
+          <Route path="/empresa" element={<EmpresaPage />} />
           <Route
             path="/usuarios"
             element={
