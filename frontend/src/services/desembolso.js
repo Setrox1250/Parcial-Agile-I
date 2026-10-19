@@ -65,22 +65,6 @@ export async function confirmarDesembolso(prestamoId, { metodo, referencia, idem
   }
 }
 
-export async function editarPrestamoPendiente(prestamoId, { monto, plazoMeses }) {
-  if (!prestamoId) return fallo('PRESTAMO_REQUERIDO', 'Falta el identificador del préstamo.')
-  try {
-    const cuerpo = await llamarFuncion('desembolso', {
-      method: 'PATCH',
-      path: `/${prestamoId}`,
-      body: { monto, plazoMeses },
-    })
-    return cuerpo?.prestamo
-      ? { ok: true, data: cuerpo }
-      : fallo('RESPUESTA_INESPERADA', 'Respuesta inesperada al editar el préstamo.')
-  } catch (error) {
-    return traducir(error, 'NO_SE_PUDO_EDITAR')
-  }
-}
-
 export async function anularDesembolso(prestamoId) {
   if (!prestamoId) return fallo('PRESTAMO_REQUERIDO', 'Falta el identificador del préstamo.')
 

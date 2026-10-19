@@ -1,8 +1,7 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   anularDesembolso,
   confirmarDesembolso,
-  editarPrestamoPendiente,
   listarDesembolsos,
 } from '../../services/desembolso'
 import TablaDatos from '../../components/ui/TablaDatos.jsx'
@@ -23,9 +22,6 @@ export default function DesembolsosPage() {
   const [mensaje, setMensaje] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [prestamoEnCurso, setPrestamoEnCurso] = useState(null)
-  const [editando, setEditando] = useState(null)
-  const [editandoTerminos, setEditandoTerminos] = useState(null)
-  const [terminos, setTerminos] = useState({})
   // Clave idempotente por préstamo (RN-31): reintentos del mismo envío no duplican.
   const claves = useRef(new Map())
 
@@ -55,46 +51,6 @@ export default function DesembolsosPage() {
       [prestamoId]: { ...actual[prestamoId], [e.target.name]: e.target.value },
     }))
 
-  const cambiarTermino = (prestamoId) => (e) =>
-    setTerminos((actual) => ({ ...actual, [prestamoId]: { ...actual[prestamoId], [e.target.name]: e.target.value } }))
-
-  const iniciarEdicionTerminos = (prestamo) => {
-    setEditandoTerminos(prestamo.id)
-    setTerminos((actual) => ({
-      ...actual,
-      [prestamo.id]: { monto: String(prestamo.principal), plazoMeses: String(prestamo.plazoMeses) },
-    }))
-    setError(null)
-    setMensaje(null)
-  }
-
-  const guardarTerminos = async (prestamo) => {
-    const formulario = terminos[prestamo.id]
-    setError(null)
-    setMensaje(null)
-    setPrestamoEnCurso(prestamo.id)
-    try {
-      const monto = Number(formulario?.monto)
-      const plazoMeses = Number(formulario?.plazoMeses)
-      const resultado = await editarPrestamoPendiente(prestamo.id, { monto, plazoMeses })
-      if (!resultado.ok) { setError(resultado.error.message); return }
-      setEditandoTerminos(null)
-      const interesTotal = resultado.data.prestamo.interesTotal
-      setMensaje(interesTotal == null
-        ? 'Préstamo actualizado. Recarga la lista para consultar el interés total del cronograma.'
-        : `Préstamo actualizado. Interés total: S/ ${soles(interesTotal)}.`)
-      await cargar()
-    } finally {
-      setPrestamoEnCurso(null)
-    }
-  }
-
-  const editar = (prestamoId) => {
-    setEditando(prestamoId)
-    setError(null)
-    setMensaje(null)
-  }
-
   const confirmar = async (prestamo) => {
     const form = formas[prestamo.id] ?? FORM_POR_DEFECTO
     setError(null)
@@ -117,7 +73,6 @@ export default function DesembolsosPage() {
         `Desembolso de S/ ${soles(prestamo.principal)} confirmado (préstamo ${prestamo.id.slice(0, 8)}).`,
       )
       claves.current.delete(prestamo.id)
-      setEditando(null)
       await cargar()
     } finally {
       setPrestamoEnCurso(null)
@@ -180,10 +135,7 @@ export default function DesembolsosPage() {
             renderFila={(p) => {
                 const form = formas[p.id] ?? FORM_POR_DEFECTO
                 const ocupado = prestamoEnCurso === p.id
-                const enEdicion = editando === p.id
-                const editandoDatos = editandoTerminos === p.id
                 return (
-                  <Fragment key={p.id}>
                   <tr key={p.id}>
                     <td>
                       <strong>{p.prestatario?.nombre ?? '—'}</strong>
@@ -201,7 +153,7 @@ export default function DesembolsosPage() {
                         name="metodo"
                         value={form.metodo}
                         onChange={cambiar(p.id)}
-                        disabled={ocupado || !enEdicion}
+                        disabled={ocupado}
                       >
                         <option value="EFECTIVO">Efectivo</option>
                         <option value="TRANSFERENCIA">Transferencia</option>
@@ -215,45 +167,18 @@ export default function DesembolsosPage() {
                           value={form.referencia}
                           onChange={cambiar(p.id)}
                           placeholder="N.º de operación"
-                          disabled={ocupado || !enEdicion}
+                          disabled={ocupado}
                         />
                       ) : (
                         '—'
                       )}
                     </td>
                     <td>
-                      {enEdicion ? (
-                        <button
-                          type="button"
-                          className="btn btn-secundario"
-                          onClick={() => setEditando(null)}
-                          disabled={ocupado}
-                        >
-                          Listo
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-secundario"
-                          onClick={() => editar(p.id)}
-                          disabled={ocupado}
-                        >
-                          Editar entrega
-                        </button>
-                      )}{' '}
-                      <button
-                        type="button"
-                        className="btn btn-secundario"
-                        onClick={() => iniciarEdicionTerminos(p)}
-                          disabled={ocupado || editandoDatos}
-                      >
-                        Editar préstamo
-                      </button>{' '}
                       <button
                         type="button"
                         className="btn"
                         onClick={() => confirmar(p)}
-                        disabled={ocupado || editandoDatos || (form.metodo === 'TRANSFERENCIA' && !form.referencia.trim())}
+                        disabled={ocupado || (form.metodo === 'TRANSFERENCIA' && !form.referencia.trim())}
                       >
                         {ocupado ? 'Procesando…' : 'Confirmar desembolso'}
                       </button>{' '}
@@ -261,27 +186,12 @@ export default function DesembolsosPage() {
                         type="button"
                         className="btn btn-secundario"
                         onClick={() => anular(p)}
-                        disabled={ocupado || editandoDatos}
+                        disabled={ocupado}
                       >
                         Anular
                       </button>
                     </td>
                   </tr>
-                  {editandoTerminos === p.id && (
-                    <tr key={`${p.id}-edicion`}>
-                      <td colSpan={9}>
-                        <div className="desembolso-editar-terminos">
-                          <strong>Editar términos antes de desembolsar</strong>
-                          <label>Monto (S/)<input type="number" min="0.01" step="0.01" name="monto" value={terminos[p.id]?.monto ?? ''} onChange={cambiarTermino(p.id)} /></label>
-                          <label>Plazo (meses)<input type="number" min="1" max="60" step="1" name="plazoMeses" value={terminos[p.id]?.plazoMeses ?? ''} onChange={cambiarTermino(p.id)} /></label>
-                          <span>TEA fija: 30 %. Se recalcularán cuotas e interés total.</span>
-                          <button type="button" className="btn" onClick={() => guardarTerminos(p)} disabled={ocupado}>{ocupado ? 'Guardando…' : 'Guardar cambios'}</button>
-                          <button type="button" className="btn btn-secundario" onClick={() => setEditandoTerminos(null)} disabled={ocupado}>Cancelar</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
                 )
             }}
           />
