@@ -21,6 +21,7 @@ export default function DesembolsosPage() {
   const [mensaje, setMensaje] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [prestamoEnCurso, setPrestamoEnCurso] = useState(null)
+  const [editando, setEditando] = useState(null)
   // Clave idempotente por préstamo (RN-31): reintentos del mismo envío no duplican.
   const claves = useRef(new Map())
 
@@ -50,6 +51,12 @@ export default function DesembolsosPage() {
       [prestamoId]: { ...actual[prestamoId], [e.target.name]: e.target.value },
     }))
 
+  const editar = (prestamoId) => {
+    setEditando(prestamoId)
+    setError(null)
+    setMensaje(null)
+  }
+
   const confirmar = async (prestamo) => {
     const form = formas[prestamo.id] ?? FORM_POR_DEFECTO
     setError(null)
@@ -72,6 +79,7 @@ export default function DesembolsosPage() {
         `Desembolso de S/ ${soles(prestamo.principal)} confirmado (préstamo ${prestamo.id.slice(0, 8)}).`,
       )
       claves.current.delete(prestamo.id)
+      setEditando(null)
       await cargar()
     } finally {
       setPrestamoEnCurso(null)
@@ -140,6 +148,7 @@ export default function DesembolsosPage() {
               {pendientes.map((p) => {
                 const form = formas[p.id] ?? FORM_POR_DEFECTO
                 const ocupado = prestamoEnCurso === p.id
+                const enEdicion = editando === p.id
                 return (
                   <tr key={p.id}>
                     <td>
@@ -157,7 +166,7 @@ export default function DesembolsosPage() {
                         name="metodo"
                         value={form.metodo}
                         onChange={cambiar(p.id)}
-                        disabled={ocupado}
+                        disabled={ocupado || !enEdicion}
                       >
                         <option value="EFECTIVO">Efectivo</option>
                         <option value="TRANSFERENCIA">Transferencia</option>
@@ -171,13 +180,32 @@ export default function DesembolsosPage() {
                           value={form.referencia}
                           onChange={cambiar(p.id)}
                           placeholder="N.º de operación"
-                          disabled={ocupado}
+                          disabled={ocupado || !enEdicion}
                         />
                       ) : (
                         '—'
                       )}
                     </td>
                     <td>
+                      {enEdicion ? (
+                        <button
+                          type="button"
+                          className="btn btn-secundario"
+                          onClick={() => setEditando(null)}
+                          disabled={ocupado}
+                        >
+                          Listo
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-secundario"
+                          onClick={() => editar(p.id)}
+                          disabled={ocupado}
+                        >
+                          Editar
+                        </button>
+                      )}{' '}
                       <button
                         type="button"
                         className="btn"
