@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import Alerta from '../../components/ui/Alerta.jsx'
