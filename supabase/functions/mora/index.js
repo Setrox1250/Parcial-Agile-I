@@ -146,7 +146,18 @@ Deno.serve(async (req) => {
   const esProceso = pathname.endsWith('/mora/procesar')
   const admin = createAdminClient()
 
-  if (req.method === 'GET' && esRaiz) return listar(admin, perfil)
+  if (req.method === 'GET' && esRaiz) {
+    // Reconciliar al abrir la pantalla para reflejar vencimientos aunque pg_cron
+    // no se haya ejecutado todavía; la función SQL es idempotente y tiene lock.
+    const { data, error } = await admin.rpc('procesar_mora_con_reintentos', {
+      p_fecha: null,
+      p_max_intentos: 3,
+    })
+    if (error || !data?.ok) {
+      return errorResponse('No se pudo actualizar el estado de mora', 500, 'INTERNAL_ERROR')
+    }
+    return listar(admin, perfil)
+  }
   if (req.method === 'POST' && esProceso) return procesar(admin, perfil, correlacion)
   return errorResponse('Use GET /mora o POST /mora/procesar', 405, 'METHOD_NOT_ALLOWED')
 })

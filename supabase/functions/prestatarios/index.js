@@ -29,6 +29,30 @@ function identidadEmpresa(em) {
   return { ruc: em.ruc, razonSocial: em.razon_social, estadoRuc: em.estado_ruc };
 }
 
+async function listarPrestatarios(admin) {
+  const pagina = 500;
+  const filas = [];
+  for (let desde = 0; ; desde += pagina) {
+    const { data, error } = await admin
+      .from("prestatarios")
+      .select("id, tipo, estado, personas_naturales(dni, nombres, apellido_paterno, apellido_materno), empresas(ruc, razon_social, estado_ruc)")
+      .order("id")
+      .range(desde, desde + pagina - 1);
+    if (error) return errorResponse("No se pudo cargar la lista de prestatarios", 500, "INTERNAL_ERROR");
+    filas.push(...(data ?? []));
+    if (!data || data.length < pagina) break;
+  }
+  const prestatarios = filas.map((f) => ({
+    id: f.id,
+    tipo: f.tipo,
+    estadoFicha: f.estado,
+    identidad: f.tipo === "EMPRESA"
+      ? identidadEmpresa(f.empresas)
+      : (f.personas_naturales ? identidadNatural(f.personas_naturales) : null),
+  })).filter((f) => f.identidad);
+  return json({ prestatarios });
+}
+
 // Busca la ficha por DNI (persona natural) o RUC (empresa); null si no existe.
 async function buscarFicha(admin, tipo, valor) {
   if (tipo === "dni") {
@@ -73,6 +97,9 @@ Deno.serve(async (req) => {
 
   const { pathname, searchParams } = new URL(req.url);
   const admin = createAdminClient();
+
+  // Directorio global para Consulta; lectura con los roles autorizados de HU-09.
+  if (pathname.endsWith("/lista")) return listarPrestatarios(admin);
 
   // ------------------------------------------------------------------ 9.1
   if (pathname.endsWith("/buscar")) {

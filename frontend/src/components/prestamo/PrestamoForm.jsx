@@ -98,17 +98,27 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
 
   async function manejarConfirmacion() {
     setCargandoConfirmacion(true)
-    const respuesta = await originarPrestamo({
-      prestatarioId,
-      monto: Number(monto),
-      plazoMeses: Number(plazo),
-      fechaOriginacion: fecha,
-      sucursalId: esAdmin ? sucursalId : undefined,
-      idempotencyKey: crypto.randomUUID(),
-    })
-    setCargandoConfirmacion(false)
-    setResultado(respuesta)
-    if (respuesta.ok) onOrigenExitoso?.()
+    try {
+      const respuesta = await originarPrestamo({
+        prestatarioId,
+        monto: Number(monto),
+        plazoMeses: Number(plazo),
+        fechaOriginacion: fecha,
+        sucursalId: esAdmin ? sucursalId : undefined,
+        idempotencyKey: crypto.randomUUID(),
+      })
+      setResultado(respuesta)
+      if (respuesta.ok) onOrigenExitoso?.()
+    } catch (error) {
+      setResultado({
+        ok: false,
+        error: {
+          message: error?.message ?? 'No se pudo registrar el préstamo. Intente nuevamente.',
+        },
+      })
+    } finally {
+      setCargandoConfirmacion(false)
+    }
   }
 
   return (

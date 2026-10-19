@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { listarCobranza, registrarPago, verificarPago } from '../../services/pagos'
+import { buscarPrestatario, obtenerHistorial } from '../../services/consulta.js'
 
 const PEN = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' })
 
@@ -38,6 +39,11 @@ export default function CobranzasPage() {
   const [mensaje, setMensaje] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const [cuotasPorPrestamo, setCuotasPorPrestamo] = useState({})
+  const [cargandoCuotas, setCargandoCuotas] = useState(false)
+  const [errorCuotas, setErrorCuotas] = useState(null)
+  const [cuotasSeleccionadas, setCuotasSeleccionadas] = useState([])
+  const solicitudCuotas = useRef(0)
 
   // RN-31: mismo cobro reenviado -> un solo pago (se renueva tras cada cobro).
   const [claveIdempotencia, setClaveIdempotencia] = useState(() => crypto.randomUUID())
@@ -51,6 +57,7 @@ export default function CobranzasPage() {
       setPrestamos(respuesta.data.prestamos)
       setPendientes(respuesta.data.pendientes)
       setRecientes(respuesta.data.recientes)
+      setCuotasPorPrestamo({})
     }
     setCargando(false)
   }, [])
@@ -59,7 +66,80 @@ export default function CobranzasPage() {
     cargar()
   }, [cargar])
 
-  const cambiar = (campo) => (e) => setForm({ ...form, [campo]: e.target.value })
+  const cambiar = (campo) => (e) => setForm((actual) => ({ ...actual, [campo]: e.target.value }))
+
+  const cambiarPrestamo = async (e) => {
+    const prestamoId = e.target.value
+    const prestamo = prestamos.find((p) => p.id === prestamoId)
+    const solicitud = ++solicitudCuotas.current
+    setErrorCuotas(null)
+    setCuotasSeleccionadas([])
+    setForm((actual) => ({
+      ...actual,
+      prestamoId,
+      monto: '',
+    }))
+
+    if (!prestamo) {
+      setCargandoCuotas(false)
+      return
+    }
+
+    let cuotas = cuotasPorPrestamo[prestamoId] ?? prestamo.cuotas
+    if (!cuotas) {
+      setCargandoCuotas(true)
+      const esEmpresa = prestamo.prestatario?.tipo === 'EMPRESA'
+      const documento = prestamo.prestatario?.documento
+      const busqueda = documento
+        ? await buscarPrestatario(esEmpresa ? { ruc: documento } : { dni: documento })
+        : { ok: false, error: { message: 'No se encontró el documento del prestatario.' } }
+
+      if (solicitud !== solicitudCuotas.current) return
+      if (!busqueda.ok) {
+        setErrorCuotas(busqueda.error?.message ?? 'No se pudo cargar el cronograma de cuotas.')
+        setCargandoCuotas(false)
+        return
+      }
+
+      const historial = await obtenerHistorial(busqueda.data.prestatarioId)
+      if (solicitud !== solicitudCuotas.current) return
+      if (!historial.ok) {
+        setErrorCuotas(historial.error?.message ?? 'No se pudo cargar el cronograma de cuotas.')
+        setCargandoCuotas(false)
+        return
+      }
+
+      const prestamoHistorial = historial.data.prestamos.find((p) => p.id === prestamoId)
+      cuotas = prestamoHistorial?.cuotas?.map((cuota) => ({
+        numero: cuota.numero,
+        vencimiento: cuota.vencimiento,
+        montoProgramado: Number(cuota.totalProgramado),
+        montoAbonado: Number(cuota.abonado),
+        saldo: Number(cuota.saldo),
+        estado: cuota.saldo <= 0.005
+          ? 'PAGADA'
+          : cuota.vencimiento < new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date())
+            ? 'VENCIDA'
+            : cuota.abonado > 0
+              ? 'PARCIAL'
+              : 'PENDIENTE',
+      }))
+
+      if (!cuotas) {
+        setErrorCuotas('Este préstamo no tiene un cronograma de cuotas disponible.')
+        setCargandoCuotas(false)
+        return
+      }
+      setCuotasPorPrestamo((actual) => ({ ...actual, [prestamoId]: cuotas }))
+    }
+
+    const siguienteCuota = cuotas.find((cuota) => cuota.saldo > 0)
+    setCuotasSeleccionadas(siguienteCuota ? [siguienteCuota.numero] : [])
+    setForm((actual) => actual.prestamoId === prestamoId
+      ? { ...actual, monto: siguienteCuota ? siguienteCuota.saldo.toFixed(2) : '' }
+      : actual)
+    setCargandoCuotas(false)
+  }
 
   const registrar = async (e) => {
     e.preventDefault()
@@ -69,6 +149,14 @@ export default function CobranzasPage() {
     const monto = Number(form.monto)
     if (!Number.isFinite(monto) || monto <= 0) {
       setError('El monto debe ser mayor que cero.')
+      return
+    }
+    const saldoTotalPendiente = cuotas.reduce(
+      (total, cuota) => total + cuota.saldo,
+      0,
+    )
+    if (Number.isFinite(saldoTotalPendiente) && monto > saldoTotalPendiente + 0.005) {
+      setError(`El monto supera el saldo pendiente del cronograma (${PEN.format(saldoTotalPendiente)}).`)
       return
     }
     if (form.medio === 'TRANSFERENCIA' && !form.referencia.trim()) {
@@ -125,6 +213,24 @@ export default function CobranzasPage() {
 
   const transferencia = form.medio === 'TRANSFERENCIA'
   const prestamoSeleccionado = prestamos.find((p) => p.id === form.prestamoId)
+  const cuotas = cuotasPorPrestamo[form.prestamoId] ?? prestamoSeleccionado?.cuotas ?? []
+  const siguienteCuota = cuotas.find((cuota) => cuota.saldo > 0)
+  const cuotasPendientes = cuotas.filter((cuota) => cuota.saldo > 0)
+  const totalCuotasSeleccionadas = cuotasPendientes
+    .filter((cuota) => cuotasSeleccionadas.includes(cuota.numero))
+    .reduce((total, cuota) => total + cuota.saldo, 0)
+
+  const seleccionarCuota = (numero, seleccionada) => {
+    const indice = cuotasPendientes.findIndex((cuota) => cuota.numero === numero)
+    const seleccion = seleccionada
+      ? cuotasPendientes.slice(0, indice + 1).map((cuota) => cuota.numero)
+      : cuotasPendientes.slice(0, indice).map((cuota) => cuota.numero)
+    setCuotasSeleccionadas(seleccion)
+    const total = cuotasPendientes
+      .filter((cuota) => seleccion.includes(cuota.numero))
+      .reduce((suma, cuota) => suma + cuota.saldo, 0)
+    setForm((actual) => ({ ...actual, monto: total ? total.toFixed(2) : '' }))
+  }
 
   return (
     <section>
@@ -142,21 +248,88 @@ export default function CobranzasPage() {
         <form className="formulario" onSubmit={registrar}>
           <label>
             Préstamo a cobrar
-            <select value={form.prestamoId} onChange={cambiar('prestamoId')} required>
+            <select value={form.prestamoId} onChange={cambiarPrestamo} required>
               <option value="">— Seleccione un préstamo activo —</option>
               {prestamos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {nombrePrestamo(p)} · {PEN.format(p.principal)} · {p.sucursal ?? '—'}
+                  {nombrePrestamo(p)} · Saldo {PEN.format(p.capitalInsoluto ?? p.principal)} · {p.sucursal ?? '—'}
                 </option>
               ))}
             </select>
           </label>
 
           {prestamoSeleccionado && (
-            <p className="cargando">
-              Saldo insoluto registrado: {PEN.format(prestamoSeleccionado.principal)} · Desembolsado
-              el {fecha(prestamoSeleccionado.desembolsadoEn)}
-            </p>
+            <>
+              <p className="cargando cobranza-saldo-prestamo">
+                Capital insoluto: {PEN.format(prestamoSeleccionado.capitalInsoluto ?? prestamoSeleccionado.principal)} · Desembolsado el{' '}
+                {fecha(prestamoSeleccionado.desembolsadoEn)}
+              </p>
+
+              <div className="cobranza-cronograma">
+                <div className="cobranza-cronograma-cabecera">
+                  <div>
+                    <h3>Cuotas del préstamo</h3>
+                    <p>Marca una o varias cuotas pendientes para sumar el monto del pago.</p>
+                  </div>
+                  {totalCuotasSeleccionadas > 0 && (
+                    <span className="cobranza-monto-sugerido">
+                      Seleccionado: {PEN.format(totalCuotasSeleccionadas)}
+                    </span>
+                  )}
+                </div>
+                {cargandoCuotas ? (
+                  <p className="cargando">Cargando el cronograma del cliente…</p>
+                ) : errorCuotas ? (
+                  <div className="aviso aviso-error">{errorCuotas}</div>
+                ) : cuotas.length === 0 ? (
+                  <p className="cargando">Este préstamo no tiene un cronograma de cuotas disponible.</p>
+                ) : (
+                  <div className="cobranza-tabla-envoltura">
+                    <table className="tabla cobranza-tabla-cuotas">
+                      <thead>
+                        <tr>
+                          <th>Incluir</th>
+                          <th>Cuota</th>
+                          <th>Vencimiento</th>
+                          <th>Programado</th>
+                          <th>Abonado</th>
+                          <th>Pendiente</th>
+                          <th>Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cuotas.map((cuota) => (
+                          <tr
+                            key={cuota.numero}
+                            className={cuota.numero === siguienteCuota?.numero ? 'cobranza-cuota-siguiente' : ''}
+                          >
+                            <td>
+                              {cuota.saldo > 0 && (
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Incluir cuota ${cuota.numero}`}
+                                  checked={cuotasSeleccionadas.includes(cuota.numero)}
+                                  onChange={(e) => seleccionarCuota(cuota.numero, e.target.checked)}
+                                />
+                              )}
+                            </td>
+                            <td>{cuota.numero}</td>
+                            <td>{cuota.vencimiento}</td>
+                            <td>{PEN.format(cuota.montoProgramado)}</td>
+                            <td>{PEN.format(cuota.montoAbonado)}</td>
+                            <td><strong>{PEN.format(cuota.saldo)}</strong></td>
+                            <td><span className={`cobranza-estado-cuota cobranza-estado-cuota--${cuota.estado.toLowerCase()}`}>{cuota.estado}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <p className="cobranza-nota-cuotas">
+                  {cuotasSeleccionadas.length} cuota(s) seleccionada(s). El pago se imputa por antigüedad, por eso solo se pueden seleccionar cuotas consecutivas. Puedes ajustar el monto para registrar un abono parcial.
+                </p>
+              </div>
+            </>
           )}
 
           <label>
@@ -167,6 +340,7 @@ export default function CobranzasPage() {
               step="0.01"
               value={form.monto}
               onChange={cambiar('monto')}
+              disabled={cargandoCuotas || enviando}
               required
             />
           </label>
@@ -192,7 +366,7 @@ export default function CobranzasPage() {
             </label>
           )}
 
-          <button type="submit" className="btn" disabled={enviando || prestamos.length === 0}>
+          <button type="submit" className="btn" disabled={enviando || cargandoCuotas || prestamos.length === 0}>
             {enviando ? 'Registrando…' : 'Registrar cobro'}
           </button>
           {prestamos.length === 0 && (
@@ -288,8 +462,8 @@ export default function CobranzasPage() {
           </table>
         )}
         <p className="cargando">
-          Los cobros confirmados se imputarán a capital e intereses del cronograma (CA-19) cuando
-          HU-05 publique las cuotas; hasta entonces figura «Por imputar».
+          Los cobros confirmados se distribuyen entre capital e intereses en orden de vencimiento.
+          Las transferencias pendientes no reducen el saldo hasta que se verifique el abono.
         </p>
       </div>
     </section>

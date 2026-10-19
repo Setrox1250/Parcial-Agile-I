@@ -31,10 +31,12 @@ Deno.test('CP-08: plazos', () => {
 });
 
 Deno.test('fechas de originación', () => {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
   assertEquals(parseFecha(undefined).fecha, hoy);
   assertEquals(parseFecha('2026-01-31').fecha, '2026-01-31');
   assertEquals(parseFecha('2099-01-01').error !== null, true, 'futura rechazada');
+  assertEquals(parseFecha('2026-02-31').error !== null, true, 'día inexistente rechazado');
+  assertEquals(parseFecha('2024-02-29').fecha, '2024-02-29', 'año bisiesto aceptado');
   assertEquals(parseFecha('no').error !== null, true);
 });
 

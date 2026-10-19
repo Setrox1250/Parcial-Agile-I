@@ -46,19 +46,31 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="marca">Préstamos Multisucursal</div>
-        <nav>
-          {(MENU[usuario.rol] ?? []).map((item) => (
-            <NavLink key={item.a} to={item.a} end={item.a === '/'}>
-              {item.texto}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
+        <div className="principal">
+          <div className="navegacion-superior">
+            <div className="marca">Préstamos Multisucursal</div>
+            <nav className="menu-principal" aria-label="Navegación principal">
+              {(MENU[usuario.rol] ?? []).map((item) => (
+                <NavLink key={item.a} to={item.a} end={item.a === '/'}>
+                  {item.texto}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="perfil-nav">
+              <div className="perfil-nav-avatar" aria-hidden="true">
+                {usuario.nombre_visible?.trim()?.[0]?.toUpperCase() ?? 'U'}
+              </div>
+              <div className="perfil-nav-datos">
+                <strong>{usuario.nombre_visible}</strong>
+                <span>{usuario.rol} · {usuario.sucursal_nombre ?? 'Sin sucursal (global)'}</span>
+              </div>
+              <button type="button" className="perfil-nav-salir" onClick={cerrarSesion} aria-label="Cerrar sesión" title="Cerrar sesión">
+                <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </div>
 
-      <div className="principal">
-        <header className="barra-superior">
+          <header className="barra-superior">
           <form className="buscador-global" onSubmit={buscarGlobal} noValidate>
             <input
               aria-label="Buscar cliente por DNI o RUC"
@@ -73,22 +85,12 @@ export default function Layout() {
               Buscar
             </button>
           </form>
-          <div className="sesion">
-            <strong>{usuario.nombre_visible}</strong>
-            <span className="etiqueta">{usuario.rol}</span>
-            <span className="sucursal">
-              {usuario.sucursal_nombre ?? 'Sin sucursal (global)'}
-            </span>
-          </div>
-          <button type="button" className="btn btn-secundario" onClick={cerrarSesion}>
-            Cerrar sesión
-          </button>
-        </header>
+          </header>
 
-        <main className="contenido">
-          <Outlet />
-        </main>
-      </div>
+          <main className="contenido">
+            <Outlet />
+          </main>
+        </div>
     </div>
   )
 }

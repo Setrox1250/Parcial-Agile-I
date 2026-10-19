@@ -11,6 +11,34 @@
   max-width: 320px;
 }
 
+.consulta-filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(100%, 460px);
+  margin-bottom: 16px;
+}
+
+.consulta-filtro label {
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.consulta-filtro input {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  font: inherit;
+}
+
+.consulta-filtro input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
 .consulta-cargando {
   display: flex;
   align-items: center;
@@ -85,6 +113,20 @@
 
 .consulta-tabla-envoltura {
   overflow-x: auto;
+}
+
+.consulta-tabla-directorio {
+  min-width: 780px;
+}
+
+.consulta-acciones-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.consulta-acciones-fila .boton {
+  white-space: nowrap;
 }
 
 .consulta-tabla,

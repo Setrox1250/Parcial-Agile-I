@@ -2,6 +2,17 @@
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+function hoyLima() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+}
+
+function esFechaCalendario(valor) {
+  if (typeof valor !== 'string' || !FECHA_RE.test(valor)) return false;
+  const [anio, mes, dia] = valor.split('-').map(Number);
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  return fecha.getUTCFullYear() === anio && fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === dia;
+}
+
 export function esUuid(valor) {
   return typeof valor === 'string' && UUID_RE.test(valor);
 }
@@ -32,11 +43,11 @@ export function parsePlazo(valor) {
 
 // Fecha de originación opcional (default hoy); nunca futura (5.3/5.4.1).
 export function parseFecha(valor) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyLima();
   if (valor === undefined || valor === null || valor === '') {
     return { fecha: hoy, error: null };
   }
-  if (typeof valor !== 'string' || !FECHA_RE.test(valor) || Number(valor.slice(0, 4)) < 2000) {
+  if (!esFechaCalendario(valor) || Number(valor.slice(0, 4)) < 2000) {
     return { fecha: null, error: 'La fecha de originación debe ser una fecha válida (YYYY-MM-DD).' };
   }
   if (valor > hoy) {

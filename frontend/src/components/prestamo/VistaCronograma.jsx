@@ -18,6 +18,7 @@ export default function VistaCronograma({
   const totalInteres = cuotas.reduce((s, c) => s + c.interes, 0)
   const mayorTotal = Math.max(...cuotas.map((c) => c.total))
   const pctCapital = (totalCapital / totalAPagar) * 100
+  const prestamoRegistrado = resultado?.data?.prestamo
 
   return (
     <div className="cronograma">
@@ -95,9 +96,11 @@ export default function VistaCronograma({
 
       {resultado?.ok ? (
         <Alerta tipo="ok">
-          {resultado.idempotente
+          {resultado.data?.idempotente
             ? 'Este préstamo ya había sido registrado con la misma clave (idempotente).'
-            : `Préstamo originado: ${soles(resultado.prestamo.principal)} en ${resultado.prestamo.plazoMeses} cuotas, estado ${resultado.prestamo.estado}.`}
+            : prestamoRegistrado
+              ? `Préstamo originado: ${soles(prestamoRegistrado.principal)} en ${prestamoRegistrado.plazoMeses} cuotas, estado ${prestamoRegistrado.estado}.`
+              : 'Préstamo originado correctamente.'}
         </Alerta>
       ) : resultado?.error ? (
         <Alerta tipo="error">{resultado.error.message}</Alerta>
