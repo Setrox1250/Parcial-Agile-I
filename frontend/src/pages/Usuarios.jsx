@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { llamarFuncion, supabase } from '../services/supabase'
+import { useAuth } from '../context/AuthContext'
 
 const FORM_VACIO = {
   email: '',
@@ -10,6 +11,7 @@ const FORM_VACIO = {
 }
 
 export default function Usuarios() {
+  const { usuario } = useAuth()
   const [perfiles, setPerfiles] = useState([])
   const [sucursales, setSucursales] = useState([])
   const [form, setForm] = useState(FORM_VACIO)
@@ -179,6 +181,10 @@ export default function Usuarios() {
                       type="button"
                       className="btn btn-secundario"
                       onClick={() => alternarActivo(p)}
+                      disabled={p.activo && p.auth_user_id === usuario?.auth_user_id}
+                      title={p.activo && p.auth_user_id === usuario?.auth_user_id
+                        ? 'No puede desactivar su propio usuario'
+                        : undefined}
                     >
                       {p.activo ? 'Desactivar' : 'Activar'}
                     </button>

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
@@ -31,6 +31,7 @@ function fechaHora(valor) {
 }
 
 export default function ConsultaPage() {
+  const navegar = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const filtroURL = searchParams.get('q') ?? searchParams.get('dni') ?? searchParams.get('ruc') ?? ''
   const filtro = filtroURL
@@ -41,6 +42,7 @@ export default function ConsultaPage() {
   const [seleccion, setSeleccion] = useState(null)
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
   const [originando, setOriginando] = useState(false)
+  const [prestamoExpandido, setPrestamoExpandido] = useState(null)
   const solicitud = useRef(0)
   const dialogoRef = useRef(null)
 
@@ -116,6 +118,18 @@ export default function ConsultaPage() {
     setSeleccion(null)
     setCargandoHistorial(false)
     setErrorDetalle(null)
+    setPrestamoExpandido(null)
+  }
+
+  function abrirCobro(prestamoId) {
+    navegar(`/cobranzas?prestamo=${encodeURIComponent(prestamoId)}`)
+  }
+
+  function estadoCuota(cuota) {
+    if (Number(cuota.saldo) <= 0.005) return 'PAGADA'
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date())
+    if (cuota.vencimiento < hoy) return 'VENCIDA'
+    return Number(cuota.abonado) > 0 ? 'PARCIAL' : 'PENDIENTE'
   }
 
   async function actualizarHistorial() {
@@ -297,14 +311,61 @@ export default function ConsultaPage() {
             ) : (
               <div className="consulta-tabla-envoltura">
                 <table className="consulta-tabla">
-                  <thead><tr><th>Sucursal</th><th>Principal</th><th>Plazo</th><th>Origen</th><th>Estado</th></tr></thead>
+                  <thead><tr><th>Sucursal</th><th>Principal</th><th>Plazo</th><th>Origen</th><th>Estado</th><th>Acciones</th></tr></thead>
                   <tbody>
-                    {historial.prestamos.map((p) => (
-                      <tr key={p.id}>
-                        <td>{p.sucursal ?? '—'}</td><td>{soles(p.principal)}</td><td>{p.plazoMeses} meses</td>
-                        <td>{p.fechaOriginacion}</td><td>{p.estado}</td>
-                      </tr>
-                    ))}
+                    {historial.prestamos.map((p) => {
+                      const expandido = prestamoExpandido === p.id
+                      const tieneSaldo = p.estado === 'ACTIVO' && p.cuotas.some((cuota) => Number(cuota.saldo) > 0.005)
+                      return (
+                        <Fragment key={p.id}>
+                          <tr>
+                            <td>{p.sucursal ?? '—'}</td><td>{soles(p.principal)}</td><td>{p.plazoMeses} meses</td>
+                            <td>{p.fechaOriginacion}</td><td>{p.estado}</td>
+                            <td>
+                              <div className="consulta-acciones-fila">
+                                <Boton type="button" variante="secundario" onClick={() => setPrestamoExpandido(expandido ? null : p.id)}>
+                                  {expandido ? 'Ocultar cuotas' : 'Ver detalle'}
+                                </Boton>
+                                {tieneSaldo && (
+                                  <Boton type="button" onClick={() => abrirCobro(p.id)}>Registrar cuota</Boton>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                          {expandido && (
+                            <tr className="consulta-detalle">
+                              <td colSpan="6">
+                                <h4>Cuotas del préstamo</h4>
+                                {p.cuotas.length === 0 ? (
+                                  <p className="consulta-vacio">Este préstamo no tiene cuotas generadas.</p>
+                                ) : (
+                                  <div className="consulta-tabla-envoltura">
+                                    <table className="consulta-cronograma">
+                                      <thead><tr><th>Cuota</th><th>Vencimiento</th><th>Programado</th><th>Abonado</th><th>Saldo</th><th>Estado</th></tr></thead>
+                                      <tbody>
+                                        {p.cuotas.map((cuota) => {
+                                          const estado = estadoCuota(cuota)
+                                          return (
+                                            <tr key={cuota.numero}>
+                                              <td>{cuota.numero}</td>
+                                              <td>{cuota.vencimiento}</td>
+                                              <td>{soles(cuota.totalProgramado)}</td>
+                                              <td>{soles(cuota.abonado)}</td>
+                                              <td><strong>{soles(cuota.saldo)}</strong></td>
+                                              <td><span className={`consulta-badge consulta-badge--${estado === 'PAGADA' ? 'ok' : estado === 'VENCIDA' ? 'muted' : 'info'}`}>{estado}</span></td>
+                                            </tr>
+                                          )
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

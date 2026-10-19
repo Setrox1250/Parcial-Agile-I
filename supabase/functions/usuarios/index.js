@@ -129,13 +129,20 @@ async function crear(admin, body, actor, correlacion) {
   return json({ perfil: { ...perfil, sucursal_nombre: sucursal.nombre } }, 201);
 }
 
-async function actualizar(admin, id, body, actor, correlacion) {
+async function actualizar(admin, id, body, actor, actorAuthUserId, correlacion) {
   const { data: actual, error } = await admin
     .from("perfiles")
     .select("id, auth_user_id, nombre_visible, rol, sucursal_id, activo")
     .eq("id", id)
     .single();
   if (error || !actual) return errorResponse("Perfil no encontrado", 404, "NOT_FOUND");
+
+  // Evita que un administrador pierda su propia sesión y deje su acceso
+  // bloqueado por accidente. La regla también se valida en servidor, no solo
+  // en la interfaz.
+  if (body.activo === false && actual.auth_user_id === actorAuthUserId) {
+    return errorResponse("No puede desactivar su propio usuario", 409, "SELF_DEACTIVATION_FORBIDDEN");
+  }
 
   const cambios = {};
   if (typeof body.activo === "boolean") cambios.activo = body.activo;
@@ -178,7 +185,7 @@ Deno.serve(async (req) => {
   const preflight = handleCors(req);
   if (preflight) return preflight;
 
-  const { perfil, error: errorAuth } = await requireAuth(req);
+  const { user, perfil, error: errorAuth } = await requireAuth(req);
   if (errorAuth) return errorAuth;
 
   const errorRol = requireRole(perfil, ["ADMIN"]);
@@ -215,7 +222,7 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return actualizar(admin, id, body, perfil, correlacion);
+    return actualizar(admin, id, body, perfil, user.id, correlacion);
   }
 
   return metodoNoPermitido();

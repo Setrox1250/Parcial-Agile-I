@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { listarCobranza, registrarPago, verificarPago } from '../../services/pagos'
 import { buscarPrestatario, obtenerHistorial } from '../../services/consulta.js'
 
@@ -31,6 +32,7 @@ function nombrePrestamo(prestamo) {
 }
 
 export default function CobranzasPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [prestamos, setPrestamos] = useState([])
   const [pendientes, setPendientes] = useState([])
   const [recientes, setRecientes] = useState([])
@@ -45,6 +47,7 @@ export default function CobranzasPage() {
   const [errorCuotas, setErrorCuotas] = useState(null)
   const [cuotasSeleccionadas, setCuotasSeleccionadas] = useState([])
   const solicitudCuotas = useRef(0)
+  const prestamoSolicitadoProcesado = useRef(null)
   const dialogoRef = useRef(null)
 
   // RN-31: mismo cobro reenviado -> un solo pago (se renueva tras cada cobro).
@@ -73,7 +76,12 @@ export default function CobranzasPage() {
     solicitudCuotas.current += 1
     setCargandoCuotas(false)
     setModalCobro(false)
-  }, [enviando])
+    setSearchParams((actual) => {
+      const siguiente = new URLSearchParams(actual)
+      siguiente.delete('prestamo')
+      return siguiente
+    }, { replace: true })
+  }, [enviando, setSearchParams])
 
   useEffect(() => {
     if (!modalCobro) return undefined
@@ -94,8 +102,7 @@ export default function CobranzasPage() {
 
   const cambiar = (campo) => (e) => setForm((actual) => ({ ...actual, [campo]: e.target.value }))
 
-  const cambiarPrestamo = async (e) => {
-    const prestamoId = e.target.value
+  const seleccionarPrestamo = useCallback(async (prestamoId) => {
     const prestamo = prestamos.find((p) => p.id === prestamoId)
     const solicitud = ++solicitudCuotas.current
     setErrorCuotas(null)
@@ -165,7 +172,25 @@ export default function CobranzasPage() {
       ? { ...actual, monto: siguienteCuota ? siguienteCuota.saldo.toFixed(2) : '' }
       : actual)
     setCargandoCuotas(false)
-  }
+  }, [prestamos, cuotasPorPrestamo])
+
+  const cambiarPrestamo = (e) => seleccionarPrestamo(e.target.value)
+
+  useEffect(() => {
+    const prestamoId = searchParams.get('prestamo')
+    if (!prestamoId || cargando || prestamoSolicitadoProcesado.current === prestamoId) return
+
+    prestamoSolicitadoProcesado.current = prestamoId
+    if (!prestamos.some((prestamo) => prestamo.id === prestamoId)) {
+      setError('El préstamo solicitado no está disponible para registrar cobros en este ámbito.')
+      return
+    }
+
+    setError(null)
+    setMensaje(null)
+    setModalCobro(true)
+    seleccionarPrestamo(prestamoId)
+  }, [searchParams, cargando, prestamos, seleccionarPrestamo])
 
   const registrar = async (e) => {
     e.preventDefault()
@@ -217,6 +242,11 @@ export default function CobranzasPage() {
       setClaveIdempotencia(crypto.randomUUID())
       await cargar()
       setModalCobro(false)
+      setSearchParams((actual) => {
+        const siguiente = new URLSearchParams(actual)
+        siguiente.delete('prestamo')
+        return siguiente
+      }, { replace: true })
     } finally {
       setEnviando(false)
     }
