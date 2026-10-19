@@ -33,7 +33,7 @@ const REPRESENTANTE = {
 }
 
 // Resultado de la consulta de RUC: ficha de empresa (solo lectura) o error tipificado.
-export default function ResultadoEmpresa({ resultado, representanteConsultado, onNuevaConsulta }) {
+export default function ResultadoEmpresa({ resultado, representanteConsultado, identidadRepresentante, consultandoIdentidadRepresentante, onNuevaConsulta }) {
   if (resultado.ok) {
     const ficha = resultado.data
     const representante = ficha.representanteEstado === 'ACREDITADO'
@@ -93,10 +93,26 @@ export default function ResultadoEmpresa({ resultado, representanteConsultado, o
             <div className="ficha-dato">
               <dt>Representante / titular</dt>
               <dd>
+                {identidadRepresentante?.nombreCompleto && (
+                  <><strong>{identidadRepresentante.nombreCompleto}</strong><br /></>
+                )}
+                {consultandoIdentidadRepresentante && !identidadRepresentante && 'Consultando datos de identidad… '}
                 DNI {ficha.representanteDni || ficha.representanteDniSugerido}
                 {ficha.representanteRol ? ` — ${ficha.representanteRol}` : ' — por validar'}
               </dd>
             </div>
+          )}
+          {identidadRepresentante && (
+            <>
+              <div className="ficha-dato">
+                <dt>Fecha de nacimiento</dt>
+                <dd>{identidadRepresentante.fechaNacimiento || 'No informada'}</dd>
+              </div>
+              <div className="ficha-dato">
+                <dt>Edad</dt>
+                <dd>{identidadRepresentante.edad ?? 'No informada'}</dd>
+              </div>
+            </>
           )}
         </dl>
 

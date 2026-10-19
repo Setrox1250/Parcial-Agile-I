@@ -8,6 +8,7 @@ import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import { consultarRuc } from '../../services/ruc.js'
+import { consultarDni } from '../../services/dni.js'
 import { consultarRepresentanteLegal } from '../../services/representanteLegal.js'
 import FlujoCredito from '../../components/operacion/FlujoCredito.jsx'
 import '../identidad/identidad.css'
@@ -22,6 +23,8 @@ export default function EmpresaPage() {
   const [revisionElegibilidad, setRevisionElegibilidad] = useState(0)
   const [consultandoRepresentante, setConsultandoRepresentante] = useState(false)
   const [representanteConsultado, setRepresentanteConsultado] = useState(null)
+  const [identidadRepresentante, setIdentidadRepresentante] = useState(null)
+  const [consultandoIdentidadRepresentante, setConsultandoIdentidadRepresentante] = useState(false)
   const [errorRepresentante, setErrorRepresentante] = useState('')
 
   async function manejarConsulta(ruc) {
@@ -29,11 +32,19 @@ export default function EmpresaPage() {
     setResultado(null)
     setPaso('empresa')
     setRepresentanteConsultado(null)
+    setIdentidadRepresentante(null)
     setErrorRepresentante('')
     try {
       const respuesta = await consultarRuc(ruc)
       setResultado(respuesta)
       if (respuesta.ok) {
+        const dniRepresentante = respuesta.data?.representanteDni || respuesta.data?.representanteDniSugerido
+        if (dniRepresentante) {
+          setConsultandoIdentidadRepresentante(true)
+          const identidad = await consultarDni(dniRepresentante)
+          if (identidad.ok) setIdentidadRepresentante(identidad.data)
+          setConsultandoIdentidadRepresentante(false)
+        }
         setPaso(respuesta.data?.representanteEstado === 'ACREDITADO' ? 'elegibilidad' : 'representacion')
       }
     } catch {
@@ -54,6 +65,10 @@ export default function EmpresaPage() {
     const respuesta = await consultarRepresentanteLegal(resultado.data.numeroRuc)
     if (respuesta.ok) {
       setRepresentanteConsultado(respuesta.data)
+      setConsultandoIdentidadRepresentante(true)
+      const identidad = await consultarDni(respuesta.data.dni)
+      if (identidad.ok) setIdentidadRepresentante(identidad.data)
+      setConsultandoIdentidadRepresentante(false)
     } else {
       setErrorRepresentante(respuesta.error.message || 'No se encontró al representante legal.')
     }
@@ -114,7 +129,7 @@ export default function EmpresaPage() {
       {paso === 'representacion' && resultado?.ok && (
         <>
           <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('empresa')}>Volver a empresa</Boton></div>
-          <ResultadoEmpresa resultado={resultado} representanteConsultado={representanteConsultado} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
+          <ResultadoEmpresa resultado={resultado} representanteConsultado={representanteConsultado} identidadRepresentante={identidadRepresentante} consultandoIdentidadRepresentante={consultandoIdentidadRepresentante} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
           {resultado.data.numeroRuc.startsWith('20') && (
         <Tarjeta titulo="Representante legal (consulta opcional)">
           <p className="nota">
@@ -159,7 +174,7 @@ export default function EmpresaPage() {
       {paso === 'elegibilidad' && resultado?.ok && resultado.data?.prestatarioId && (
         <>
         <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('representacion')}>Volver a representación</Boton></div>
-        <ResultadoEmpresa resultado={resultado} representanteConsultado={representanteConsultado} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
+        <ResultadoEmpresa resultado={resultado} representanteConsultado={representanteConsultado} identidadRepresentante={identidadRepresentante} consultandoIdentidadRepresentante={consultandoIdentidadRepresentante} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
         <TarjetaElegibilidad
           key={revisionElegibilidad}
           prestatarioId={resultado.data.prestatarioId}
