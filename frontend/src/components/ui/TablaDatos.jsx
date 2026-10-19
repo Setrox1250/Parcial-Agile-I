@@ -12,10 +12,11 @@ export default function TablaDatos({
   buscarEn,
   filtros = [],
   filasPorPagina = 10,
+  busquedaInicial = '',
   className = 'tabla',
   textoVacio = 'No hay registros que coincidan con los filtros.',
 }) {
-  const [busqueda, setBusqueda] = useState('')
+  const [busqueda, setBusqueda] = useState(busquedaInicial)
   const [valoresFiltro, setValoresFiltro] = useState({})
   const [pagina, setPagina] = useState(1)
 
