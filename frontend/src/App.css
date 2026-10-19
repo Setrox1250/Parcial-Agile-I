@@ -319,6 +319,7 @@ input:focus, select:focus { border-color: #68b8bb; box-shadow: 0 0 0 3px rgba(8,
 .contenido { max-width: 1540px; padding-top: 30px; }
 
 .modulo-operativo { display: flex; flex-direction: column; gap: 20px; max-width: 1280px; margin-inline: auto; }
+.contenido > section.modulo-operativo { max-width: 1360px; }
 .modulo-cabecera { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 5px 2px 8px; }
 .modulo-cabecera h1 { margin: 0 0 7px; }
 .modulo-cabecera > div > p:last-child { max-width: 760px; color: var(--text); font-size: .94rem; }
@@ -343,6 +344,9 @@ input:focus, select:focus { border-color: #68b8bb; box-shadow: 0 0 0 3px rgba(8,
 .tabla tbody tr { transition: background .16s ease; }
 .tabla tbody tr:hover { background: #f6fbfb; }
 .tabla td { vertical-align: middle; }
+.desembolso-acciones-celda { width: 240px; min-width: 240px; vertical-align: top !important; }
+.desembolso-acciones { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.desembolso-acciones .btn { width: 100%; min-height: 42px; padding-inline: 10px; white-space: normal; line-height: 1.2; }
 .accion-destacada { margin: 0; border-color: #b7dcdd; background: linear-gradient(105deg, #fff 0%, #f2fbfa 100%); box-shadow: 0 10px 30px rgba(8,127,140,.07); }
 
 .contenido > .pagina { width: min(100%, 1120px); margin-inline: auto; padding: 4px 0 42px; }

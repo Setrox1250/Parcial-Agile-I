@@ -173,23 +173,24 @@ export default function DesembolsosPage() {
                         '—'
                       )}
                     </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={() => confirmar(p)}
-                        disabled={ocupado || (form.metodo === 'TRANSFERENCIA' && !form.referencia.trim())}
-                      >
-                        {ocupado ? 'Procesando…' : 'Confirmar desembolso'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secundario"
-                        onClick={() => anular(p)}
-                        disabled={ocupado}
-                      >
-                        Anular
-                      </button>
+                    <td className="desembolso-acciones-celda">
+                      <div className="desembolso-acciones">
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => confirmar(p)}
+                          disabled={ocupado || (form.metodo === 'TRANSFERENCIA' && !form.referencia.trim())}
+                        >
+                          {ocupado ? 'Procesando…' : 'Confirmar desembolso'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secundario"
+                          onClick={() => anular(p)}
+                          disabled={ocupado}
+                        >
+                          Anular
+                        </button>
                       </div>
                     </td>
                   </tr>
