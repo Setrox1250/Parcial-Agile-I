@@ -38,6 +38,7 @@ AS $$
 DECLARE
     v_limite CONSTANT NUMERIC(12,2) := 10000.00;
     v_existe BOOLEAN;
+    v_estado_auditado TEXT;
     v_ocupado NUMERIC(12,2);
     v_disponible NUMERIC(12,2);
     v_historial BIGINT;
@@ -73,6 +74,13 @@ BEGIN
     v_ocupado := public.calcular_exposicion(p_prestatario_id);
     v_disponible := GREATEST(0, v_limite - v_ocupado);
 
+    -- Estado auditado de la ficha (§5 "BLOQUEADO auditado"; columna de la HU-03).
+    -- NUEVO/REGULAR/MOROSO de la columna se ignoran: la clasificación y la mora
+    -- se derivan de los datos (B-05, RN-26) para no tener doble fuente.
+    SELECT estado INTO v_estado_auditado
+    FROM public.prestatarios
+    WHERE id = p_prestatario_id;
+
     -- B-05 ratificado: NUEVO sin historial; REGULAR con >= 1 préstamo no anulado.
     SELECT COUNT(*) INTO v_historial
     FROM public.prestamos
@@ -103,6 +111,9 @@ BEGIN
     -- texto[] || texto[] y falla al castear el literal.
     IF v_incidencias > 0 THEN
         v_bloqueos := array_append(v_bloqueos, 'BLOQUEADO_INCIDENCIA_IDENTIDAD');
+    END IF;
+    IF v_estado_auditado IN ('BLOQUEADO', 'INACTIVO') THEN
+        v_bloqueos := array_append(v_bloqueos, 'BLOQUEADO_AUDITADO');
     END IF;
     IF v_mora_abierta > 0 THEN
         v_bloqueos := array_append(v_bloqueos, 'MOROSO');

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import DniForm from '../../components/identidad/DniForm.jsx'
 import ResultadoIdentidad from '../../components/identidad/ResultadoIdentidad.jsx'
+import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilidad.jsx'
 import { consultarDni } from '../../services/dni.js'
 import './identidad.css'
 
@@ -43,6 +44,11 @@ export default function IdentidadPrestatarioPage() {
           resultado={resultado}
           onNuevaConsulta={() => setResultado(null)}
         />
+      )}
+
+      {/* HU-04: cupo global y bloqueos tras verificar la identidad (4.5.x). */}
+      {resultado?.ok && resultado.data?.prestatarioId && (
+        <TarjetaElegibilidad prestatarioId={resultado.data.prestatarioId} />
       )}
     </section>
   )

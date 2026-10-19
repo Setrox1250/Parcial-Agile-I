@@ -1,0 +1,65 @@
+.elegibilidad-cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.elegibilidad-dato dt {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.elegibilidad-dato dd {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.elegibilidad-disponible {
+  color: #15803d;
+}
+
+.elegibilidad-cargando {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+}
+
+.elegibilidad-bloqueos {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.elegibilidad-desglose h3 {
+  margin: 12px 0 8px;
+  font-size: 0.95rem;
+}
+
+.elegibilidad-desglose ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.elegibilidad-desglose-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.elegibilidad-sucursal {
+  font-weight: 600;
+}
