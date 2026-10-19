@@ -17,6 +17,10 @@ const MENSAJES_ERROR = {
 // Estado del vínculo con el representante/titular.
 const REPRESENTANTE = {
   VINCULADO: { texto: 'Representante vinculado', badge: 'nuevo' },
+  ACREDITADO: {
+    texto: 'Representante acreditado: la empresa puede continuar a evaluación crediticia',
+    badge: 'existente',
+  },
   REPRESENTANTE_NO_VALIDADO: {
     texto: 'Representante sin validar: valide su DNI (HU-02) para vincularlo',
     badge: 'bloqueo',

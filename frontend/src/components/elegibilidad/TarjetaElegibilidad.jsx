@@ -13,6 +13,8 @@ const MOTIVOS = {
     'Expediente de cobranza extrajudicial abierto: la originación está bloqueada en toda la empresa.',
   BLOQUEADO_INCIDENCIA_IDENTIDAD:
     'Discrepancia de identidad pendiente de corrección autorizada: originación bloqueada.',
+  BLOQUEADO_REPRESENTACION_EMPRESA:
+    'La empresa requiere un representante con DNI validado y facultades comprobadas antes de originar.',
   BLOQUEADO_AUDITADO: 'La ficha del prestatario está bloqueada por decisión autorizada.',
   CUPO_INSUFICIENTE: 'La exposición global alcanza el límite de S/ 10 000.00 por prestatario.',
   MONTO_INVALIDO: 'El monto solicitado debe ser mayor que cero.',

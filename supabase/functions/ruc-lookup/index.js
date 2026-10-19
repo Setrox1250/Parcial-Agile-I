@@ -132,8 +132,8 @@ Deno.serve(async (req) => {
     return errorResponse("El RUC no es válido (dígito verificador incorrecto)", 400, "RUC_INVALIDO");
   }
 
-  let representanteDni = typeof cuerpo?.representanteDni === "string" ? cuerpo.representanteDni.trim() : "";
-  if (representanteDni && !/^\d{8}$/.test(representanteDni)) {
+  let dniRepresentanteSolicitado = typeof cuerpo?.representanteDni === "string" ? cuerpo.representanteDni.trim() : "";
+  if (dniRepresentanteSolicitado && !/^\d{8}$/.test(dniRepresentanteSolicitado)) {
     return errorResponse("El DNI del representante debe tener 8 dígitos", 400, "DNI_INVALIDO");
   }
 
@@ -176,10 +176,10 @@ Deno.serve(async (req) => {
 
   // Representante: RUC 10 embebe el DNI del titular; el resto lo recibe del formulario.
   let rol = "REPRESENTANTE_LEGAL";
-  if (!representanteDni) {
+  if (!dniRepresentanteSolicitado) {
     const derivado = dniDesdeRuc10(ruc);
     if (derivado) {
-      representanteDni = derivado;
+      dniRepresentanteSolicitado = derivado;
       rol = "TITULAR";
     }
   }
@@ -196,8 +196,8 @@ Deno.serve(async (req) => {
     p_ubigeo: texto(datos, "ubigeo") || null,
     p_fuente: "APISPERU",
     p_actor: actor,
-    p_representante_dni: representanteDni || null,
-    p_representante_rol: representanteDni ? rol : null,
+    p_representante_dni: dniRepresentanteSolicitado || null,
+    p_representante_rol: dniRepresentanteSolicitado ? rol : null,
   });
   const ficha = Array.isArray(filas) ? filas[0] : filas;
 
@@ -205,6 +205,46 @@ Deno.serve(async (req) => {
     console.error("ruc-lookup: fallo al registrar la empresa", errorRpc?.code);
     await traza("ERROR_PROVEEDOR", "DB_ERROR", "No se pudo registrar la empresa");
     return errorResponse("No se pudo registrar la empresa", 500, "DB_ERROR");
+  }
+
+  // Al consultar de nuevo una empresa ya registrada, la RPC reutiliza la ficha
+  // y no recibe necesariamente el DNI del representante. Se recupera el
+  // vínculo persistido para que la pantalla pueda mostrar si ya fue acreditado
+  // y permitir continuar con elegibilidad/originación sin repetir el flujo.
+  let representanteEstado = ficha.representante_estado;
+  let dniRepresentanteRespuesta =
+    representanteEstado === "VINCULADO" ? dniRepresentanteSolicitado : null;
+  let representanteRol = representanteEstado === "VINCULADO" ? rol : null;
+  let representanteDniSugerido =
+    representanteEstado === "REPRESENTANTE_NO_VALIDADO" ? dniRepresentanteSolicitado : null;
+
+  if (representanteEstado === "YA_REGISTRADA") {
+    const { data: vinculo, error: errorVinculo } = await admin
+      .from("representantes_empresa")
+      .select("persona_id, rol, autorizacion_comprobada")
+      .eq("empresa_id", ficha.prestatario_id)
+      .order("creado_en", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (errorVinculo) {
+      console.error("ruc-lookup: no se pudo recuperar el representante", errorVinculo.code);
+    } else if (vinculo) {
+      const { data: persona, error: errorPersona } = await admin
+        .from("personas_naturales")
+        .select("dni")
+        .eq("prestatario_id", vinculo.persona_id)
+        .maybeSingle();
+      if (errorPersona) {
+        console.error("ruc-lookup: no se pudo recuperar el DNI del representante", errorPersona.code);
+      } else {
+        dniRepresentanteRespuesta = persona?.dni ?? null;
+        representanteRol = vinculo.rol;
+        representanteEstado = vinculo.autorizacion_comprobada ? "ACREDITADO" : "VINCULADO";
+      }
+    } else {
+      representanteEstado = "SIN_REPRESENTANTE";
+    }
   }
 
   await traza("ENCONTRADO", null, "found data");
@@ -224,12 +264,12 @@ Deno.serve(async (req) => {
       prestatarioId: ficha.prestatario_id,
       // Solo se declara representante vinculado cuando la RPC realmente lo vinculó;
       // el DNI derivado/pendiente se expone aparte para guiar la validación (HU-02).
-      representanteDni: ficha.representante_estado === "VINCULADO" ? representanteDni : null,
-      representanteRol: ficha.representante_estado === "VINCULADO" ? rol : null,
+      representanteDni: dniRepresentanteRespuesta,
+      representanteRol,
       representanteDniSugerido:
-        ficha.representante_estado === "REPRESENTANTE_NO_VALIDADO" ? representanteDni : null,
+        representanteDniSugerido,
       // VINCULADO | REPRESENTANTE_NO_VALIDADO | SIN_REPRESENTANTE | YA_REGISTRADA
-      representanteEstado: ficha.representante_estado,
+      representanteEstado,
       // B-07: el RUC activo NO acredita poderes vigentes del representante.
       avisoPoderes:
         "Un RUC ACTIVO/HABIDO no acredita por sí solo las facultades del representante (B-07).",

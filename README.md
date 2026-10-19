@@ -91,6 +91,7 @@ supabase functions deploy                     # todas las funciones
 - **Alcance:** Solo peruanos. Persona natural → DNI (8 dígitos). Empresa peruana → RUC (11 dígitos). No se aceptan extranjeros, carné de extranjería, pasaporte, VISA u otros documentos extranjeros.
 - **Moneda:** Soles (PEN) para todos los importes.
 - TEA fija 30 %, plazo 1–60 meses, cupo global S/ 10 000 por prestatario (DNI o RUC).
-- Roles: solo `ADMIN` y `SUPERVISOR_FINANCIERO` (este último origina préstamos).
+- Roles: `ADMIN` administra usuarios, auditoría y consultas globales; `SUPERVISOR_FINANCIERO` realiza las operaciones crediticias de su sede. Ambos pueden acreditar la representación de una empresa como parte de la operación crediticia.
 - Las reglas de negocio críticas se validan en backend/BD, nunca solo en el navegador.
-- **HU-02 (identidad DNI):** frontend con mock (`VITE_MOCK_DNI=1`) y Edge Function `dni-lookup` (Scrall `reniec_basico`, requiere secreto `SCRALL_API_KEY` y sesión de usuario; el login aún es HU-01 pendiente).
+- **HU-02 (identidad DNI):** `dni-lookup` consulta Scrall `reniec_basico`; requiere el secreto `SCRALL_API_KEY` y una sesión de usuario. Para una demo local sin proveedor puede activarse `VITE_MOCK_DNI=1`.
+- **HU-03 (identidad empresarial):** `ruc-lookup` consulta RUC mediante APISPERU; requiere `APISPERU_API_KEY`. Para una demo local puede activarse `VITE_MOCK_RUC=1`. Las empresas quedan bloqueadas para originación hasta que un representante con DNI validado tenga facultades comprobadas registradas (CA-08).

@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import RucForm from '../../components/empresa/RucForm.jsx'
 import ResultadoEmpresa from '../../components/empresa/ResultadoEmpresa.jsx'
+import AcreditarRepresentanteForm from '../../components/empresa/AcreditarRepresentanteForm.jsx'
+import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilidad.jsx'
+import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
+import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import { consultarRuc } from '../../services/ruc.js'
 import '../identidad/identidad.css'
 
@@ -10,10 +14,13 @@ import '../identidad/identidad.css'
 export default function EmpresaPage() {
   const [consultando, setConsultando] = useState(false)
   const [resultado, setResultado] = useState(null)
+  const [originando, setOriginando] = useState(false)
+  const [revisionElegibilidad, setRevisionElegibilidad] = useState(0)
 
   async function manejarConsulta(ruc, representanteDni) {
     setConsultando(true)
     setResultado(null)
+    setOriginando(false)
     try {
       const respuesta = await consultarRuc(ruc, representanteDni)
       setResultado(respuesta)
@@ -27,6 +34,26 @@ export default function EmpresaPage() {
     }
   }
 
+  function manejarRepresentanteAcreditado(representante) {
+    setResultado((actual) => {
+      if (!actual?.ok) return actual
+      return {
+        ...actual,
+        data: {
+          ...actual.data,
+          representanteDni: representante.dni,
+          representanteRol: 'REPRESENTANTE_LEGAL',
+          representanteEstado: 'ACREDITADO',
+        },
+      }
+    })
+    setRevisionElegibilidad((revision) => revision + 1)
+  }
+
+  function manejarOrigenExitoso() {
+    setRevisionElegibilidad((revision) => revision + 1)
+  }
+
   return (
     <section className="pagina">
       <header className="pagina-cabecera">
@@ -34,7 +61,7 @@ export default function EmpresaPage() {
         <p>
           Ingrese el RUC de 11 dígitos: la razón social, el estado y la condición se
           recuperan de la fuente de consulta, sin digitación manual. Para originar se
-          requiere un representante con DNI verificado (flujo de identidad).
+          requiere un representante con DNI verificado y facultades acreditadas.
         </p>
       </header>
 
@@ -42,6 +69,34 @@ export default function EmpresaPage() {
 
       {resultado && (
         <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => setResultado(null)} />
+      )}
+
+      {resultado?.ok &&
+        resultado.data?.prestatarioId &&
+        resultado.data.representanteEstado !== 'ACREDITADO' && (
+        <AcreditarRepresentanteForm
+          key={resultado.data.prestatarioId}
+          empresaId={resultado.data.prestatarioId}
+          dniSugerido={resultado.data.representanteDniSugerido ?? resultado.data.representanteDni}
+          onAcreditado={manejarRepresentanteAcreditado}
+        />
+      )}
+
+      {resultado?.ok && resultado.data?.prestatarioId && (
+        <TarjetaElegibilidad
+          key={revisionElegibilidad}
+          prestatarioId={resultado.data.prestatarioId}
+          onRegistrar={() => setOriginando(true)}
+        />
+      )}
+
+      {originando && resultado?.ok && resultado.data?.prestatarioId && (
+        <Tarjeta titulo="Originar préstamo empresarial (TEA 30 % fija)">
+          <PrestamoForm
+            prestatarioId={resultado.data.prestatarioId}
+            onOrigenExitoso={manejarOrigenExitoso}
+          />
+        </Tarjeta>
       )}
     </section>
   )

@@ -38,6 +38,10 @@ entrypoint = './functions/usuarios/index.js'
 verify_jwt = true
 entrypoint = './functions/ruc-lookup/index.js'
 
+[functions.representantes]
+verify_jwt = true
+entrypoint = './functions/representantes/index.js'
+
 [functions.desembolso]
 verify_jwt = true
 entrypoint = './functions/desembolso/index.js'

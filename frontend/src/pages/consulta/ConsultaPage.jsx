@@ -15,6 +15,8 @@ const MOTIVOS_BLOQUEO = {
   MOROSO: 'El prestatario tiene una racha de mora abierta.',
   EXTRAJUDICIAL: 'Expediente de cobranza extrajudicial abierto (seguimiento interno).',
   BLOQUEADO_INCIDENCIA_IDENTIDAD: 'Incidencia de identidad pendiente de corrección.',
+  BLOQUEADO_REPRESENTACION_EMPRESA:
+    'Empresa sin representante con DNI validado y facultades comprobadas.',
   BLOQUEADO_AUDITADO: 'Ficha con estado auditado BLOQUEADO/INACTIVO.',
 }
 
