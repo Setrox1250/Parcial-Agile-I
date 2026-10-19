@@ -62,11 +62,15 @@ export function parseRegistro(body) {
   return { prestamoId, monto, medio, referencia, idempotencyKey, error: null };
 }
 
-// Body de verificación manual (§4.3.5): CONFIRMAR o RECHAZAR la transferencia.
+// Verificación de transferencia o reversión compensatoria auditada (HU-10).
 export function parseVerificacion(body) {
   const accion = String(body?.accion ?? "").trim().toUpperCase();
-  if (accion !== "CONFIRMAR" && accion !== "RECHAZAR") {
-    return { accion: null, error: "acción inválida: use CONFIRMAR o RECHAZAR" };
+  if (!["CONFIRMAR", "RECHAZAR", "REVERSAR"].includes(accion)) {
+    return { accion: null, motivo: null, error: "acción inválida" };
   }
-  return { accion, error: null };
+  const motivo = String(body?.motivo ?? "").trim();
+  if (accion === "REVERSAR" && motivo.length < 5) {
+    return { accion: null, motivo: null, error: "motivo de reversión inválido" };
+  }
+  return { accion, motivo: accion === "REVERSAR" ? motivo : null, error: null };
 }

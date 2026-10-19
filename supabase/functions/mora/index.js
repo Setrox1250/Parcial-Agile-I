@@ -7,6 +7,7 @@ import { handleCors } from '../_shared/cors.js'
 import { json, errorResponse } from '../_shared/response.js'
 import { requireAuth, requireRole } from '../_shared/auth.js'
 import { createAdminClient } from '../_shared/supabase.js'
+import { auditar, obtenerCorrelacion } from '../_shared/auditoria.js'
 
 const ROLES_LECTURA = ['ADMIN', 'SUPERVISOR_FINANCIERO']
 const SELECT_PRESTAMO =
@@ -112,7 +113,7 @@ async function listar(admin, perfil) {
   }
 }
 
-async function procesar(admin, perfil) {
+async function procesar(admin, perfil, correlacion) {
   if (perfil.rol !== 'ADMIN') {
     return errorResponse('Solo un administrador puede reprocesar la mora', 403, 'FORBIDDEN_ROLE')
   }
@@ -123,6 +124,10 @@ async function procesar(admin, perfil) {
   if (error || !data?.ok) {
     return errorResponse('No se pudo reprocesar la mora', 500, 'INTERNAL_ERROR')
   }
+  await auditar(admin, {
+    perfil, correlacion, accion: 'SISTEMA', entidad: 'procesar_mora',
+    metadatos: { fecha: data.fecha ?? null, intentos: data.intentos ?? 1 },
+  })
   return json({ proceso: data })
 }
 
@@ -134,6 +139,7 @@ Deno.serve(async (req) => {
   if (errorAuth) return errorAuth
   const errorRol = requireRole(perfil, ROLES_LECTURA)
   if (errorRol) return errorRol
+  const correlacion = obtenerCorrelacion(req)
 
   const { pathname } = new URL(req.url)
   const esRaiz = pathname.endsWith('/mora')
@@ -141,6 +147,6 @@ Deno.serve(async (req) => {
   const admin = createAdminClient()
 
   if (req.method === 'GET' && esRaiz) return listar(admin, perfil)
-  if (req.method === 'POST' && esProceso) return procesar(admin, perfil)
+  if (req.method === 'POST' && esProceso) return procesar(admin, perfil, correlacion)
   return errorResponse('Use GET /mora o POST /mora/procesar', 405, 'METHOD_NOT_ALLOWED')
 })

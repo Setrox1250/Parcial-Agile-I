@@ -12,6 +12,7 @@ const MENU = {
     { a: '/desembolsos', texto: 'Desembolsos' },
     { a: '/cobranzas', texto: 'Cobranza' },
     { a: '/mora', texto: 'Mora' },
+    { a: '/auditoria', texto: 'Auditoría' },
     { a: '/usuarios', texto: 'Usuarios' },
   ],
   SUPERVISOR_FINANCIERO: [

@@ -50,6 +50,10 @@ entrypoint = './functions/pagos/index.js'
 verify_jwt = true
 entrypoint = './functions/mora/index.js'
 
+[functions.auditoria]
+verify_jwt = true
+entrypoint = './functions/auditoria/index.js'
+
 [studio]
 port = 54329
 

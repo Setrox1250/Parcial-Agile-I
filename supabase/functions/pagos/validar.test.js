@@ -81,12 +81,18 @@ Deno.test("parseRegistro conserva la idempotency_key opcional", () => {
   }
 });
 
-Deno.test("parseVerificacion admite solo CONFIRMAR o RECHAZAR", () => {
+Deno.test("parseVerificacion admite verificación y reversión con motivo", () => {
   if (parseVerificacion({ accion: "confirmar" }).accion !== "CONFIRMAR") {
     throw new Error("esperaba CONFIRMAR normalizado");
   }
   if (parseVerificacion({ accion: "RECHAZAR" }).accion !== "RECHAZAR") {
     throw new Error("esperaba RECHAZAR");
+  }
+  if (parseVerificacion({ accion: "REVERSAR", motivo: "Error de caja" }).motivo !== "Error de caja") {
+    throw new Error("esperaba reversión con motivo");
+  }
+  if (parseVerificacion({ accion: "REVERSAR", motivo: "no" }).error === null) {
+    throw new Error("esperaba motivo de reversión inválido");
   }
   if (parseVerificacion({ accion: "BORRAR" }).error === null) {
     throw new Error("esperaba error con acción desconocida");

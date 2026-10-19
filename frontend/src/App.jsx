@@ -10,6 +10,7 @@ import ConsultaPage from './pages/consulta/ConsultaPage'
 import DesembolsosPage from './pages/desembolsos/DesembolsosPage'
 import CobranzasPage from './pages/cobranzas/CobranzasPage'
 import MoraPage from './pages/mora/MoraPage'
+import AuditoriaPage from './pages/auditoria/AuditoriaPage'
 import './App.css'
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
               </RequireRole>
             }
           />
+          <Route path="/auditoria" element={<RequireRole roles={['ADMIN']}><AuditoriaPage /></RequireRole>} />
           <Route
             path="/usuarios"
             element={
