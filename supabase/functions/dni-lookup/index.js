@@ -187,11 +187,14 @@ Deno.serve(async (req) => {
   const { nuDni, preNombres, apePaterno, apeMaterno, feNacimiento } = registro;
 
   // CA-04 / RN-03: nuDni coincidente y datos completos; si no, no hay originación.
-  if (nuDni !== dni) {
+  // El proveedor puede devolver nuDni como número o con espacios: se normaliza (solo dígitos).
+  const dniDevuelto = String(nuDni ?? "").trim();
+  if (dniDevuelto !== dni) {
     return errorResponse(
       "La respuesta del proveedor no coincide con el DNI consultado",
       502,
       "DNI_INCONSISTENTE",
+      { dniConsultado: dni, dniDevuelto, camposRecibidos: Object.keys(registro).join(",") },
     );
   }
 
