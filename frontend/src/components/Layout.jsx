@@ -29,8 +29,8 @@ const MENU = {
 export default function Layout() {
   const { usuario, salir } = useAuth()
   const navigate = useNavigate()
-  // HU-09 9.3.1: buscador global DNI/RUC accesible desde el layout.
-  const [documento, setDocumento] = useState('')
+  // Búsqueda global: abre el directorio de Consulta con el mismo filtro.
+  const [busquedaGlobal, setBusquedaGlobal] = useState('')
 
   const cerrarSesion = async () => {
     await salir()
@@ -39,9 +39,8 @@ export default function Layout() {
 
   const buscarGlobal = (evento) => {
     evento.preventDefault()
-    const limpio = documento.replace(/\D/g, '')
-    if (limpio.length === 8) navigate(`/consulta?dni=${limpio}`)
-    else if (limpio.length === 11) navigate(`/consulta?ruc=${limpio}`)
+    const termino = busquedaGlobal.trim()
+    if (termino) navigate(`/consulta?q=${encodeURIComponent(termino)}`)
   }
 
   return (
@@ -73,15 +72,14 @@ export default function Layout() {
           <header className="barra-superior">
           <form className="buscador-global" onSubmit={buscarGlobal} noValidate>
             <input
-              aria-label="Buscar cliente por DNI o RUC"
-              inputMode="numeric"
+              type="search"
+              aria-label="Buscar clientes por nombre, DNI o RUC"
               autoComplete="off"
-              placeholder="Buscar DNI o RUC…"
-              maxLength={11}
-              value={documento}
-              onChange={(e) => setDocumento(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              placeholder="Buscar cliente por nombre, DNI o RUC…"
+              value={busquedaGlobal}
+              onChange={(e) => setBusquedaGlobal(e.target.value)}
             />
-            <button type="submit" className="btn btn-secundario" disabled={documento.length < 8}>
+            <button type="submit" className="btn btn-secundario" disabled={!busquedaGlobal.trim()}>
               Buscar
             </button>
           </form>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
@@ -28,7 +29,9 @@ function fechaHora(valor) {
 }
 
 export default function ConsultaPage() {
-  const [filtro, setFiltro] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filtroURL = searchParams.get('q') ?? searchParams.get('dni') ?? searchParams.get('ruc') ?? ''
+  const filtro = filtroURL
   const [prestatarios, setPrestatarios] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -78,6 +81,15 @@ export default function ConsultaPage() {
         .includes(termino),
     )
   }, [filtro, prestatarios])
+
+  function cambiarFiltro(valor) {
+    const parametros = new URLSearchParams(searchParams)
+    parametros.delete('dni')
+    parametros.delete('ruc')
+    if (valor) parametros.set('q', valor)
+    else parametros.delete('q')
+    setSearchParams(parametros, { replace: true })
+  }
 
   async function abrirPrestatario(prestatario, modo) {
     const idSolicitud = ++solicitud.current
@@ -141,7 +153,7 @@ export default function ConsultaPage() {
               type="search"
               placeholder="Nombre, DNI o RUC"
               value={filtro}
-              onChange={(e) => setFiltro(e.target.value)}
+              onChange={(e) => cambiarFiltro(e.target.value)}
             />
           </div>
         )}
