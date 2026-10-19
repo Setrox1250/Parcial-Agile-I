@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { llamarFuncion, supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
+import TablaDatos from '../components/ui/TablaDatos.jsx'
 
 const FORM_VACIO = {
   email: '',
@@ -157,19 +158,16 @@ export default function Usuarios() {
         {cargando ? (
           <p className="cargando">Cargando…</p>
         ) : (
-          <div className="tabla-envoltura"><table className="tabla">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Correo</th>
-                <th>Rol</th>
-                <th>Sucursal</th>
-                <th>Estado</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {perfiles.map((p) => (
+          <TablaDatos
+            filas={perfiles}
+            columnas={['Nombre', 'Correo', 'Rol', 'Sucursal', 'Estado', 'Acciones']}
+            clave={(p) => p.id}
+            buscarEn={(p) => `${p.nombre_visible ?? ''} ${p.email ?? ''} ${p.rol ?? ''} ${p.sucursal_nombre ?? ''}`}
+            filtros={[
+              { id: 'estado', etiqueta: 'Estado', opciones: [{ valor: 'activo', etiqueta: 'Activo' }, { valor: 'inactivo', etiqueta: 'Inactivo' }], coincide: (p, valor) => (valor === 'activo' ? p.activo : !p.activo) },
+              { id: 'rol', etiqueta: 'Rol', opciones: [...new Set(perfiles.map((p) => p.rol).filter(Boolean))].map((valor) => ({ valor, etiqueta: valor })), coincide: (p, valor) => p.rol === valor },
+            ]}
+            renderFila={(p) => (
                 <tr key={p.id} className={p.activo ? '' : 'fila-inactiva'}>
                   <td>{p.nombre_visible}</td>
                   <td>{p.email ?? '—'}</td>
@@ -190,9 +188,8 @@ export default function Usuarios() {
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+            )}
+          />
         )}
       </div>
     </section>

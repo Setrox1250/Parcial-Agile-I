@@ -5,6 +5,7 @@ import {
   editarPrestamoPendiente,
   listarDesembolsos,
 } from '../../services/desembolso'
+import TablaDatos from '../../components/ui/TablaDatos.jsx'
 
 const soles = (valor) =>
   Number(valor).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -168,22 +169,15 @@ export default function DesembolsosPage() {
         ) : pendientes.length === 0 ? (
           <p>No hay préstamos pendientes de desembolso en su ámbito.</p>
         ) : (
-          <div className="tabla-envoltura"><table className="tabla">
-            <thead>
-              <tr>
-                <th>Prestatario</th>
-                <th>Principal</th>
-                <th>Plazo</th>
-                <th>Interés total</th>
-                <th>Sucursal origen</th>
-                <th>Registrado</th>
-                <th>Método</th>
-                <th>Referencia</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {pendientes.map((p) => {
+          <TablaDatos
+            filas={pendientes}
+            columnas={['Prestatario', 'Principal', 'Plazo', 'Interés total', 'Sucursal origen', 'Registrado', 'Método', 'Referencia', 'Acciones']}
+            clave={(p) => p.id}
+            buscarEn={(p) => `${p.prestatario?.nombre ?? ''} ${p.prestatario?.documento ?? ''} ${p.sucursal ?? ''} ${p.principal} ${p.interesTotal ?? ''}`}
+            filtros={[
+              { id: 'tipo', etiqueta: 'Tipo', todas: 'Todos los tipos', opciones: [{ valor: 'PERSONA', etiqueta: 'Persona' }, { valor: 'EMPRESA', etiqueta: 'Empresa' }], coincide: (p, valor) => p.prestatario?.tipo === valor },
+            ]}
+            renderFila={(p) => {
                 const form = formas[p.id] ?? FORM_POR_DEFECTO
                 const ocupado = prestamoEnCurso === p.id
                 const enEdicion = editando === p.id
@@ -289,9 +283,8 @@ export default function DesembolsosPage() {
                   )}
                   </Fragment>
                 )
-              })}
-            </tbody>
-          </table></div>
+            }}
+          />
         )}
       </div>
 
@@ -303,18 +296,15 @@ export default function DesembolsosPage() {
         {historial.length === 0 ? (
           <p>Sin desembolsos confirmados todavía.</p>
         ) : (
-          <div className="tabla-envoltura"><table className="tabla">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Importe</th>
-                <th>Método</th>
-                <th>Referencia</th>
-                <th>Sucursal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historial.map((d) => (
+          <TablaDatos
+            filas={historial}
+            columnas={['Fecha', 'Importe', 'Método', 'Referencia', 'Sucursal']}
+            clave={(d) => d.id}
+            buscarEn={(d) => `${d.importe} ${d.metodo} ${d.referencia ?? ''} ${d.sucursal ?? ''}`}
+            filtros={[
+              { id: 'metodo', etiqueta: 'Método', todas: 'Todos los métodos', opciones: [{ valor: 'EFECTIVO', etiqueta: 'Efectivo' }, { valor: 'TRANSFERENCIA', etiqueta: 'Transferencia' }], coincide: (d, valor) => d.metodo === valor },
+            ]}
+            renderFila={(d) => (
                 <tr key={d.id}>
                   <td>{fecha(d.fecha)}</td>
                   <td>S/ {soles(d.importe)}</td>
@@ -322,9 +312,8 @@ export default function DesembolsosPage() {
                   <td>{d.referencia ?? '—'}</td>
                   <td>{d.sucursal ?? '—'}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+            )}
+          />
         )}
       </div>
     </section>

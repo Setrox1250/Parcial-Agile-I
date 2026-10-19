@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { listarCobranza, verificarPago } from '../../services/pagos'
 import RegistrarCobro from '../../components/cobranza/RegistrarCobro.jsx'
 import Dialogo from '../../components/ui/Dialogo.jsx'
+import TablaDatos from '../../components/ui/TablaDatos.jsx'
 import { normalizarPrestamo } from '../../utils/cobranza.js'
 
 const PEN = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' })
@@ -135,18 +136,12 @@ export default function CobranzasPage({ registro = false }) {
         ) : pendientes.length === 0 ? (
           <p className="cargando">Sin transferencias pendientes de verificación.</p>
         ) : (
-          <div className="tabla-envoltura"><table className="tabla">
-            <thead>
-              <tr>
-                <th>Registrado</th>
-                <th>Prestatario</th>
-                <th>Monto</th>
-                <th>Referencia</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {pendientes.map((p) => (
+          <TablaDatos
+            filas={pendientes}
+            columnas={['Registrado', 'Prestatario', 'Monto', 'Referencia', 'Acciones']}
+            clave={(p) => p.id}
+            buscarEn={(p) => `${p.prestatario?.nombre ?? ''} ${p.referencia ?? ''} ${p.monto}`}
+            renderFila={(p) => (
                 <tr key={p.id}>
                   <td>{fecha(p.registradoEn)}</td>
                   <td>{p.prestatario?.nombre ?? '—'}</td>
@@ -169,9 +164,8 @@ export default function CobranzasPage({ registro = false }) {
                     </button>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+            )}
+          />
         )}
       </div>
 
@@ -182,20 +176,16 @@ export default function CobranzasPage({ registro = false }) {
         ) : recientes.length === 0 ? (
           <p className="cargando">Todavía no hay cobros registrados.</p>
         ) : (
-          <div className="tabla-envoltura"><table className="tabla">
-            <thead>
-              <tr>
-                <th>Registrado</th>
-                <th>Prestatario</th>
-                <th>Monto</th>
-                <th>Medio</th>
-                <th>Estado</th>
-                <th>Confirmado</th>
-                <th>Imputado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recientes.map((p) => (
+          <TablaDatos
+            filas={recientes}
+            columnas={['Registrado', 'Prestatario', 'Monto', 'Medio', 'Estado', 'Confirmado', 'Imputado']}
+            clave={(p) => p.id}
+            buscarEn={(p) => `${p.prestatario?.nombre ?? ''} ${p.referencia ?? ''} ${p.monto} ${ESTADOS[p.estado] ?? p.estado}`}
+            filtros={[
+              { id: 'medio', etiqueta: 'Medio', todas: 'Todos los medios', opciones: [{ valor: 'EFECTIVO', etiqueta: 'Efectivo' }, { valor: 'TRANSFERENCIA', etiqueta: 'Transferencia' }], coincide: (p, valor) => p.medio === valor },
+              { id: 'estado', etiqueta: 'Estado', opciones: Object.entries(ESTADOS).map(([valor, etiqueta]) => ({ valor, etiqueta })), coincide: (p, valor) => p.estado === valor },
+            ]}
+            renderFila={(p) => (
                 <tr key={p.id}>
                   <td>{fecha(p.registradoEn)}</td>
                   <td>{p.prestatario?.nombre ?? '—'}</td>
@@ -210,9 +200,8 @@ export default function CobranzasPage({ registro = false }) {
                   <td>{fecha(p.confirmadoEn)}</td>
                   <td>{p.imputadoEn ? fecha(p.imputadoEn) : 'Por imputar'}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+            )}
+          />
         )}
         <p className="cargando">
           Los cobros confirmados se distribuyen entre capital e intereses en orden de vencimiento.

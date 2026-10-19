@@ -8,12 +8,33 @@ import { acreditarRepresentante } from '../../services/representantes.js'
 // el usuario vuelva a escribir datos que ya llegaron de la consulta del RUC.
 export default function AcreditarRepresentanteForm({ empresaId, ruc, representante, onAcreditado }) {
   const [confirmoFacultades, setConfirmoFacultades] = useState(false)
-  const [cargando, setCargando] = useState(false)
+  const [consultandoDni, setConsultandoDni] = useState(false)
+  const [acreditando, setAcreditando] = useState(false)
+  const [identidad, setIdentidad] = useState(null)
   const [resultado, setResultado] = useState(null)
 
-  async function acreditar(evento) {
-    evento.preventDefault()
+  async function consultarIdentidad() {
     setResultado(null)
+    setConsultandoDni(true)
+    const validacion = await consultarDni(representante.dni)
+    setConsultandoDni(false)
+    if (!validacion.ok) {
+      setIdentidad(null)
+      setResultado({ ok: false, error: validacion.error })
+      return
+    }
+    setIdentidad(validacion.data)
+  }
+
+  async function acreditar() {
+    setResultado(null)
+    if (!identidad) {
+      setResultado({
+        ok: false,
+        error: { message: 'Consulte y verifique los datos del DNI antes de acreditar la representación.' },
+      })
+      return
+    }
     if (!confirmoFacultades) {
       setResultado({
         ok: false,
@@ -22,14 +43,7 @@ export default function AcreditarRepresentanteForm({ empresaId, ruc, representan
       return
     }
 
-    setCargando(true)
-    const validacion = await consultarDni(representante.dni)
-    if (!validacion.ok) {
-      setCargando(false)
-      setResultado({ ok: false, error: validacion.error })
-      return
-    }
-
+    setAcreditando(true)
     const fechaRevision = new Date().toISOString()
     const fuente = `${representante.proveedor || 'Consulta de identidad'} - representante legal`
     const evidenciaReferencia = [
@@ -46,10 +60,10 @@ export default function AcreditarRepresentanteForm({ empresaId, ruc, representan
       fuente,
       evidenciaReferencia,
     })
-    setCargando(false)
+    setAcreditando(false)
     setResultado(acreditacion)
     if (acreditacion.ok) {
-      onAcreditado?.({ ...acreditacion.data, nombreValidado: validacion.data.nombreCompleto })
+      onAcreditado?.({ ...acreditacion.data, nombreValidado: identidad.nombreCompleto })
     }
   }
 
@@ -63,19 +77,64 @@ export default function AcreditarRepresentanteForm({ empresaId, ruc, representan
         {representante.cargo ? ` · ${representante.cargo}` : ''}
       </p>
       <p className="nota">
-        Al confirmar, el sistema valida automáticamente el DNI con HU-02 y registra la consulta.
-        Revise las facultades en una fuente autorizada antes de continuar.
+        Consulte los datos de identidad con HU-02 y revise las facultades en una fuente autorizada
+        antes de acreditar la representación.
       </p>
 
-      <label className="nota" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-        <input
-          type="checkbox"
-          checked={confirmoFacultades}
-          onChange={(evento) => setConfirmoFacultades(evento.target.checked)}
-          disabled={cargando}
-        />
-        Confirmo que revisé las facultades de representación para esta operación.
-      </label>
+      {!identidad && (
+        <Boton type="button" cargando={consultandoDni} onClick={consultarIdentidad}>
+          {consultandoDni ? 'Consultando DNI…' : 'Consultar datos del DNI'}
+        </Boton>
+      )}
+
+      {identidad && (
+        <>
+          <dl className="ficha">
+            <div className="ficha-dato">
+              <dt>DNI</dt>
+              <dd>{identidad.numeroDni}</dd>
+            </div>
+            <div className="ficha-dato">
+              <dt>Nombre completo</dt>
+              <dd>{identidad.nombreCompleto}</dd>
+            </div>
+            <div className="ficha-dato">
+              <dt>Fecha de nacimiento</dt>
+              <dd>{identidad.fechaNacimiento || 'No informada'}</dd>
+            </div>
+            <div className="ficha-dato">
+              <dt>Edad</dt>
+              <dd>{identidad.edad ?? 'No informada'}</dd>
+            </div>
+            <div className="ficha-dato">
+              <dt>Ficha de identidad</dt>
+              <dd>
+                <span className={`badge badge--${identidad.estadoFicha === 'EXISTENTE' ? 'existente' : 'nuevo'}`}>
+                  {identidad.estadoFicha}
+                </span>
+              </dd>
+            </div>
+          </dl>
+
+          <Boton type="button" variante="secundario" onClick={consultarIdentidad} disabled={acreditando}>
+            Actualizar datos del DNI
+          </Boton>
+
+          <label className="nota" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+            <input
+              type="checkbox"
+              checked={confirmoFacultades}
+              onChange={(evento) => setConfirmoFacultades(evento.target.checked)}
+              disabled={acreditando}
+            />
+            Confirmo que revisé las facultades de representación para esta operación.
+          </label>
+
+          <Boton type="button" cargando={acreditando} disabled={!confirmoFacultades} onClick={acreditar}>
+            {acreditando ? 'Acreditando representante…' : 'Acreditar representante'}
+          </Boton>
+        </>
+      )}
 
       {resultado && (
         <Alerta tipo={resultado.ok ? 'ok' : 'error'}>
@@ -87,9 +146,6 @@ export default function AcreditarRepresentanteForm({ empresaId, ruc, representan
         </Alerta>
       )}
 
-      <Boton type="button" cargando={cargando} disabled={!confirmoFacultades} onClick={acreditar}>
-        {cargando ? 'Validando y acreditando…' : 'Validar DNI y acreditar representante'}
-      </Boton>
     </section>
   )
 }

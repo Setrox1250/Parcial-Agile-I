@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { listarMora, reprocesarMora } from '../../services/mora'
+import TablaDatos from '../../components/ui/TablaDatos.jsx'
 
 const PEN = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' })
 
@@ -97,18 +98,15 @@ export default function MoraPage() {
         ) : moras.length === 0 ? (
           <p>No hay cuotas vencidas con saldo en su ámbito.</p>
         ) : (
-          <div className="tabla-envoltura"><table className="tabla">
-            <thead>
-              <tr>
-                <th>Prestatario</th>
-                <th>Sucursal</th>
-                <th>Inicio de mora</th>
-                <th>Monto vencido</th>
-                <th>Cuotas vencidas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {moras.map((mora) => (
+          <TablaDatos
+            filas={moras}
+            columnas={['Prestatario', 'Sucursal', 'Inicio de mora', 'Monto vencido', 'Cuotas vencidas']}
+            clave={(mora) => mora.id}
+            buscarEn={(mora) => `${prestatario(mora.prestamo)} ${mora.prestamo?.sucursal ?? ''} ${mora.montoVencido}`}
+            filtros={[
+              { id: 'sucursal', etiqueta: 'Sucursal', opciones: [...new Set(moras.map((mora) => mora.prestamo?.sucursal).filter(Boolean))].map((valor) => ({ valor, etiqueta: valor })), coincide: (mora, valor) => mora.prestamo?.sucursal === valor },
+            ]}
+            renderFila={(mora) => (
                 <tr key={mora.id}>
                   <td>{prestatario(mora.prestamo)}</td>
                   <td>{mora.prestamo?.sucursal ?? '—'}</td>
@@ -116,9 +114,8 @@ export default function MoraPage() {
                   <td>{PEN.format(mora.montoVencido)}</td>
                   <td>{mora.evidencia?.length ?? 0}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+            )}
+          />
         )}
       </div>
 
@@ -133,18 +130,15 @@ export default function MoraPage() {
         ) : expedientes.length === 0 ? (
           <p>Sin expedientes extrajudiciales registrados.</p>
         ) : (
-          <div className="tabla-envoltura"><table className="tabla">
-            <thead>
-              <tr>
-                <th>Prestatario</th>
-                <th>Sucursal</th>
-                <th>Escalado</th>
-                <th>Estado</th>
-                <th>Acción / resultado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expedientes.map((expediente) => (
+          <TablaDatos
+            filas={expedientes}
+            columnas={['Prestatario', 'Sucursal', 'Escalado', 'Estado', 'Acción / resultado']}
+            clave={(expediente) => expediente.id}
+            buscarEn={(expediente) => `${prestatario(expediente.prestamo)} ${expediente.prestamo?.sucursal ?? ''} ${expediente.accion ?? ''} ${expediente.resultado ?? ''} ${expediente.estado}`}
+            filtros={[
+              { id: 'estado', etiqueta: 'Estado', opciones: [...new Set(expedientes.map((expediente) => expediente.estado).filter(Boolean))].map((valor) => ({ valor, etiqueta: valor })), coincide: (expediente, valor) => expediente.estado === valor },
+            ]}
+            renderFila={(expediente) => (
                 <tr key={expediente.id}>
                   <td>{prestatario(expediente.prestamo)}</td>
                   <td>{expediente.prestamo?.sucursal ?? '—'}</td>
@@ -152,9 +146,8 @@ export default function MoraPage() {
                   <td><span className="etiqueta">{expediente.estado}</span></td>
                   <td>{expediente.accion ?? expediente.resultado ?? 'Sin gestión registrada'}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table></div>
+            )}
+          />
         )}
       </div>
     </section>
