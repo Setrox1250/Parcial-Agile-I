@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import DniForm from '../../components/identidad/DniForm.jsx'
 import ResultadoIdentidad from '../../components/identidad/ResultadoIdentidad.jsx'
 import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilidad.jsx'
 import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
+import Boton from '../../components/ui/Boton.jsx'
 import { consultarDni } from '../../services/dni.js'
 import FlujoCredito from '../../components/operacion/FlujoCredito.jsx'
 import './identidad.css'
@@ -15,40 +16,23 @@ import './identidad.css'
 export default function IdentidadPrestatarioPage() {
   const [consultando, setConsultando] = useState(false)
   const [resultado, setResultado] = useState(null)
-  const [originando, setOriginando] = useState(false)
-  const dialogoRef = useRef(null)
+  const [paso, setPaso] = useState('identidad')
   // Remonta la tarjeta de elegibilidad para refrescar el cupo tras originar.
   const [revisionElegibilidad, setRevisionElegibilidad] = useState(0)
 
-  useEffect(() => {
-    if (!resultado) return undefined
-    const overflowAnterior = document.body.style.overflow
-    const focoAnterior = document.activeElement
-    document.body.style.overflow = 'hidden'
-    dialogoRef.current?.querySelector('button')?.focus()
-    function cerrarConEscape(evento) {
-      if (evento.key === 'Escape') cerrarResultado()
-    }
-    window.addEventListener('keydown', cerrarConEscape)
-    return () => {
-      window.removeEventListener('keydown', cerrarConEscape)
-      document.body.style.overflow = overflowAnterior
-      if (focoAnterior instanceof HTMLElement) focoAnterior.focus()
-    }
-  }, [resultado])
-
-  function cerrarResultado() {
+  function volverAIdentidad() {
     setResultado(null)
-    setOriginando(false)
+    setPaso('identidad')
   }
 
   async function manejarConsulta(dni) {
     setConsultando(true)
     setResultado(null)
-    setOriginando(false)
+    setPaso('identidad')
     try {
       const respuesta = await consultarDni(dni)
       setResultado(respuesta)
+      if (respuesta.ok) setPaso('elegibilidad')
     } catch {
       setResultado({
         ok: false,
@@ -73,45 +57,30 @@ export default function IdentidadPrestatarioPage() {
         </p>
       </header>
 
-      <FlujoCredito verificado={Boolean(resultado?.ok)} originando={originando} />
+      <FlujoCredito pasoActual={paso === 'identidad' ? 0 : paso === 'elegibilidad' ? 1 : 2} />
 
-      <DniForm onConsultar={manejarConsulta} consultando={consultando} />
+      {paso === 'identidad' && (
+        <>
+          <DniForm onConsultar={manejarConsulta} consultando={consultando} />
+          {resultado && !resultado.ok && <ResultadoIdentidad resultado={resultado} onNuevaConsulta={() => setResultado(null)} />}
+        </>
+      )}
 
-      {resultado && (
-        <div className="flujo-modal-fondo" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) cerrarResultado() }}>
-          <section ref={dialogoRef} className="flujo-modal" role="dialog" aria-modal="true" aria-labelledby="identidad-modal-titulo">
-            <header className="flujo-modal-cabecera">
-              <div>
-                <span>EXPEDIENTE EN ORIGINACIÓN</span>
-                <h2 id="identidad-modal-titulo">{resultado.ok ? 'Continúa con la evaluación del cliente' : 'No se pudo verificar la identidad'}</h2>
-              </div>
-              <button type="button" className="flujo-modal-cerrar" aria-label="Cerrar resultado" onClick={cerrarResultado}>×</button>
-            </header>
-            <div className="flujo-modal-contenido">
-              <FlujoCredito verificado={Boolean(resultado.ok)} originando={originando} />
-              <ResultadoIdentidad resultado={resultado} onNuevaConsulta={cerrarResultado} />
+      {paso === 'elegibilidad' && resultado?.ok && resultado.data?.prestatarioId && (
+        <>
+          <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('identidad')}>Volver a identidad</Boton></div>
+          <ResultadoIdentidad resultado={resultado} onNuevaConsulta={volverAIdentidad} />
+          <TarjetaElegibilidad key={revisionElegibilidad} prestatarioId={resultado.data.prestatarioId} onRegistrar={() => setPaso('prestamo')} />
+        </>
+      )}
 
-              {/* HU-04: cupo global y bloqueos tras verificar la identidad (4.5.x). */}
-              {resultado.ok && resultado.data?.prestatarioId && (
-                <TarjetaElegibilidad
-                  key={revisionElegibilidad}
-                  prestatarioId={resultado.data.prestatarioId}
-                  onRegistrar={() => setOriginando(true)}
-                />
-              )}
-
-              {/* HU-05: originación con vista previa de cronograma (5.4/5.5). */}
-              {originando && resultado.ok && resultado.data?.prestatarioId && (
-                <Tarjeta titulo="Originar préstamo (TEA 30 % fija)">
-                  <PrestamoForm
-                    prestatarioId={resultado.data.prestatarioId}
-                    onOrigenExitoso={manejarOrigenExitoso}
-                  />
-                </Tarjeta>
-              )}
-            </div>
-          </section>
-        </div>
+      {paso === 'prestamo' && resultado?.ok && resultado.data?.prestatarioId && (
+        <>
+          <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('elegibilidad')}>Volver a elegibilidad</Boton></div>
+          <Tarjeta titulo="Originar préstamo (TEA 30 % fija)">
+            <PrestamoForm prestatarioId={resultado.data.prestatarioId} onOrigenExitoso={manejarOrigenExitoso} />
+          </Tarjeta>
+        </>
       )}
     </section>
   )

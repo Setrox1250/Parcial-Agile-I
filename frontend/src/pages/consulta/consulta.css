@@ -418,6 +418,10 @@
   margin: 14px 0;
 }
 
+.consulta-expediente-pagina { display: flex; flex-direction: column; gap: 18px; }
+.consulta-expediente-pagina > .tarjeta { margin: 0; }
+.consulta-expediente-cabecera { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+
 @media (max-width: 680px) {
   /* Hoja con scroll completo: cabecera fija y contenido sin recorte, así el
      formulario de originación y sus botones siempre quedan alcanzables. */

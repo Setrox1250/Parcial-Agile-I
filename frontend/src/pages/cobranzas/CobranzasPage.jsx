@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { listarCobranza, verificarPago } from '../../services/pagos'
 import RegistrarCobro from '../../components/cobranza/RegistrarCobro.jsx'
 import Dialogo from '../../components/ui/Dialogo.jsx'
@@ -19,13 +20,14 @@ function fecha(iso) {
   return new Date(iso).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
 }
 
-export default function CobranzasPage() {
+export default function CobranzasPage({ registro = false }) {
+  const navegar = useNavigate()
+  const [searchParams] = useSearchParams()
   const [prestamos, setPrestamos] = useState([])
   const [pendientes, setPendientes] = useState([])
   const [recientes, setRecientes] = useState([])
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(true)
-  const [modalCobro, setModalCobro] = useState(false)
   // Diálogos: confirmación de acciones y mensajes pequeños (aviso/información).
   const [dialogo, setDialogo] = useState(null)
   const [ocupado, setOcupado] = useState(false)
@@ -84,6 +86,17 @@ export default function CobranzasPage() {
     })
   }
 
+  if (registro) {
+    return (
+      <RegistrarCobro
+        prestamos={prestamos}
+        prestamoInicial={searchParams.get('prestamo') ?? undefined}
+        onRegistrado={cargar}
+        onCerrar={() => navegar('/cobranzas')}
+      />
+    )
+  }
+
   return (
     <section className="modulo-operativo">
       <header className="modulo-cabecera">
@@ -108,20 +121,12 @@ export default function CobranzasPage() {
         <button
           type="button"
           className="btn"
-          onClick={() => { setError(null); setModalCobro(true) }}
+          onClick={() => navegar('/cobranzas/registrar')}
           disabled={cargando || prestamos.length === 0}
         >
           Registrar cobro
         </button>
       </div>
-
-      {modalCobro && (
-        <RegistrarCobro
-          prestamos={prestamos}
-          onRegistrado={() => cargar()}
-          onCerrar={() => setModalCobro(false)}
-        />
-      )}
 
       <div className="tarjeta cola-operativa">
         <div className="cola-operativa-cabecera"><div><p className="tarjeta-eyebrow">VALIDACIÓN</p><h2>Transferencias por verificar</h2></div><span>El saldo cambia solo al confirmar</span></div>

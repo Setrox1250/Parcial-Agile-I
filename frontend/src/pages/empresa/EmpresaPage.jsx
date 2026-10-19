@@ -18,7 +18,7 @@ import '../identidad/identidad.css'
 export default function EmpresaPage() {
   const [consultando, setConsultando] = useState(false)
   const [resultado, setResultado] = useState(null)
-  const [originando, setOriginando] = useState(false)
+  const [paso, setPaso] = useState('empresa')
   const [revisionElegibilidad, setRevisionElegibilidad] = useState(0)
   const [consultandoRepresentante, setConsultandoRepresentante] = useState(false)
   const [representanteConsultado, setRepresentanteConsultado] = useState(null)
@@ -27,12 +27,15 @@ export default function EmpresaPage() {
   async function manejarConsulta(ruc, representanteDni) {
     setConsultando(true)
     setResultado(null)
-    setOriginando(false)
+    setPaso('empresa')
     setRepresentanteConsultado(null)
     setErrorRepresentante('')
     try {
       const respuesta = await consultarRuc(ruc, representanteDni)
       setResultado(respuesta)
+      if (respuesta.ok) {
+        setPaso(respuesta.data?.representanteEstado === 'ACREDITADO' ? 'elegibilidad' : 'representacion')
+      }
     } catch {
       setResultado({
         ok: false,
@@ -71,6 +74,7 @@ export default function EmpresaPage() {
       }
     })
     setRevisionElegibilidad((revision) => revision + 1)
+    setPaso('elegibilidad')
   }
 
   function manejarOrigenExitoso() {
@@ -87,20 +91,20 @@ export default function EmpresaPage() {
         </p>
       </header>
 
-      <FlujoCredito
-        tipo="EMPRESA"
-        verificado={Boolean(resultado?.ok)}
-        representacionAcreditada={resultado?.data?.representanteEstado === 'ACREDITADO'}
-        originando={originando}
-      />
+      <FlujoCredito tipo="EMPRESA" pasoActual={paso === 'empresa' ? 0 : paso === 'representacion' ? 1 : paso === 'elegibilidad' ? 2 : 3} />
 
-      <RucForm onConsultar={manejarConsulta} consultando={consultando} />
-
-      {resultado && (
-        <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => setResultado(null)} />
+      {paso === 'empresa' && (
+        <>
+          <RucForm onConsultar={manejarConsulta} consultando={consultando} />
+          {resultado && !resultado.ok && <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => setResultado(null)} />}
+        </>
       )}
 
-      {resultado?.ok && resultado.data.numeroRuc.startsWith('20') && (
+      {paso === 'representacion' && resultado?.ok && (
+        <>
+          <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('empresa')}>Volver a empresa</Boton></div>
+          <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
+          {resultado.data.numeroRuc.startsWith('20') && (
         <Tarjeta titulo="Representante legal (consulta opcional)">
           <p className="nota">
             Esta consulta es independiente de APISPERU y solo sugiere datos para facilitar la validación.
@@ -127,34 +131,38 @@ export default function EmpresaPage() {
             </div>
           )}
         </Tarjeta>
-      )}
+          )}
 
-      {resultado?.ok &&
-        resultado.data?.prestatarioId &&
-        resultado.data.representanteEstado !== 'ACREDITADO' && (
+          {resultado.data?.prestatarioId && resultado.data.representanteEstado !== 'ACREDITADO' && (
         <AcreditarRepresentanteForm
           key={resultado.data.prestatarioId}
           empresaId={resultado.data.prestatarioId}
           dniSugerido={representanteConsultado?.dni ?? resultado.data.representanteDniSugerido ?? resultado.data.representanteDni}
           onAcreditado={manejarRepresentanteAcreditado}
         />
+          )}
+        </>
       )}
 
-      {resultado?.ok && resultado.data?.prestatarioId && (
+      {paso === 'elegibilidad' && resultado?.ok && resultado.data?.prestatarioId && (
+        <>
+        <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('representacion')}>Volver a representación</Boton></div>
+        <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
         <TarjetaElegibilidad
           key={revisionElegibilidad}
           prestatarioId={resultado.data.prestatarioId}
-          onRegistrar={() => setOriginando(true)}
+          onRegistrar={() => setPaso('prestamo')}
         />
+        </>
       )}
 
-      {originando && resultado?.ok && resultado.data?.prestatarioId && (
-        <Tarjeta titulo="Originar préstamo empresarial (TEA 30 % fija)">
-          <PrestamoForm
-            prestatarioId={resultado.data.prestatarioId}
-            onOrigenExitoso={manejarOrigenExitoso}
-          />
-        </Tarjeta>
+      {paso === 'prestamo' && resultado?.ok && resultado.data?.prestatarioId && (
+        <>
+          <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('elegibilidad')}>Volver a elegibilidad</Boton></div>
+          <Tarjeta titulo="Originar préstamo empresarial (TEA 30 % fija)">
+            <PrestamoForm prestatarioId={resultado.data.prestatarioId} onOrigenExitoso={manejarOrigenExitoso} />
+          </Tarjeta>
+        </>
       )}
     </section>
   )

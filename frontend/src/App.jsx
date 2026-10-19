@@ -41,6 +41,14 @@ function App() {
             }
           />
           <Route
+            path="/cobranzas/registrar"
+            element={
+              <RequireRole roles={['ADMIN', 'SUPERVISOR_FINANCIERO']}>
+                <CobranzasPage registro />
+              </RequireRole>
+            }
+          />
+          <Route
             path="/mora"
             element={
               <RequireRole roles={['ADMIN', 'SUPERVISOR_FINANCIERO']}>

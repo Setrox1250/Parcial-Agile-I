@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import Spinner from '../../components/ui/Spinner.jsx'
-import Modal from '../../components/ui/Modal.jsx'
 import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
-import RegistrarCobro from '../../components/cobranza/RegistrarCobro.jsx'
 import { listarPrestatarios, obtenerHistorial } from '../../services/consulta.js'
-import { normalizarPrestamo, estadoCuota as estadoCuotaDerivado } from '../../utils/cobranza.js'
+import { estadoCuota as estadoCuotaDerivado } from '../../utils/cobranza.js'
 import { soles } from '../../utils/dinero.js'
 import './consulta.css'
 
@@ -153,6 +151,7 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
 }
 
 export default function ConsultaPage() {
+  const navegar = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const filtroURL = searchParams.get('q') ?? searchParams.get('dni') ?? searchParams.get('ruc') ?? ''
   const filtro = filtroURL
@@ -164,7 +163,6 @@ export default function ConsultaPage() {
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
   const [pestana, setPestana] = useState('prestamos')
   const [expandido, setExpandido] = useState(null)
-  const [cobroDe, setCobroDe] = useState(null)
   const solicitud = useRef(0)
 
   useEffect(() => {
@@ -205,7 +203,6 @@ export default function ConsultaPage() {
     setErrorDetalle(null)
     setCargandoHistorial(true)
     setExpandido(null)
-    setCobroDe(null)
     setPestana(modo === 'prestamo' ? 'originacion' : 'pagos')
     setSeleccion({ prestatario, modo, historial: null })
     const respuesta = await obtenerHistorial(prestatario.id)
@@ -224,7 +221,6 @@ export default function ConsultaPage() {
     setCargandoHistorial(false)
     setErrorDetalle(null)
     setExpandido(null)
-    setCobroDe(null)
   }
 
   async function actualizarHistorial() {
@@ -245,7 +241,6 @@ export default function ConsultaPage() {
   const pagos = prestamos
     .flatMap((p) => (p.pagos ?? []).map((pago) => ({ ...pago, prestamo: p })))
     .sort((a, b) => String(b.confirmadoEn ?? b.registradoEn).localeCompare(String(a.confirmadoEn ?? a.registradoEn)))
-  const prestamosCobrables = useMemo(() => prestamos.map(normalizarPrestamo), [prestamos])
 
   const pestanas = [
     ...(seleccion?.modo === 'prestamo' ? [{ id: 'originacion', texto: 'Nuevo préstamo' }] : []),
@@ -264,7 +259,7 @@ export default function ConsultaPage() {
 
       {error && <Alerta tipo="error">{error.message}</Alerta>}
 
-      <Tarjeta
+      {!seleccion && <Tarjeta
         className="consulta-directorio"
         titulo={`Expedientes registrados (${filtrados.length})`}
         accion={(
@@ -324,17 +319,15 @@ export default function ConsultaPage() {
             </table>
           </div>
         )}
-      </Tarjeta>
+      </Tarjeta>}
 
       {seleccion && (
-        <Modal
-          className="consulta-modal"
-          eyebrow={seleccion.modo === 'pagos' ? 'EXPEDIENTE 360' : 'ORIGINACIÓN'}
-          titulo={nombreCompleto(seleccion.prestatario)}
-          subtitulo={documentoDe(seleccion.prestatario)}
-          onCerrar={cerrarDetalle}
-          busy={cargandoHistorial}
-        >
+        <section className="consulta-expediente-pagina" aria-busy={cargandoHistorial}>
+          <header className="pagina-cabecera consulta-expediente-cabecera">
+            <div><p className="modulo-eyebrow">{seleccion.modo === 'pagos' ? 'EXPEDIENTE 360' : 'ORIGINACIÓN'}</p><h1>{nombreCompleto(seleccion.prestatario)}</h1><p>{documentoDe(seleccion.prestatario)}</p></div>
+            <Boton type="button" variante="secundario" onClick={cerrarDetalle}>Volver al directorio</Boton>
+          </header>
+          <Tarjeta>
           {errorDetalle && <Alerta tipo="error">{errorDetalle.message}</Alerta>}
           {cargandoHistorial && <p className="consulta-cargando"><Spinner /> Cargando datos del cliente...</p>}
 
@@ -432,7 +425,7 @@ export default function ConsultaPage() {
                                 prestamo={p}
                                 expandido={expandido === p.id}
                                 onAlternar={() => setExpandido(expandido === p.id ? null : p.id)}
-                                onCobrar={() => setCobroDe(p.id)}
+                                onCobrar={() => navegar(`/cobranzas/registrar?prestamo=${encodeURIComponent(p.id)}`)}
                               />
                             ))}
                           </tbody>
@@ -503,16 +496,8 @@ export default function ConsultaPage() {
               </div>
             </>
           )}
-        </Modal>
-      )}
-
-      {cobroDe && (
-        <RegistrarCobro
-          prestamos={prestamosCobrables}
-          prestamoInicial={cobroDe}
-          onRegistrado={() => actualizarHistorial()}
-          onCerrar={() => setCobroDe(null)}
-        />
+          </Tarjeta>
+        </section>
       )}
     </section>
   )

@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react'
-import Modal from '../ui/Modal.jsx'
 import Dialogo from '../ui/Dialogo.jsx'
 import { registrarPago } from '../../services/pagos.js'
 import { buscarPrestatario, obtenerHistorial } from '../../services/consulta.js'
@@ -28,8 +27,8 @@ function etiquetaPrestamo(prestamo) {
 //   prestamos       -> lista de préstamos cobrables (ya normalizados)
 //   prestamoInicial -> id preseleccionado (expediente 360); si existe no se muestra select
 //   onRegistrado    -> se invoca tras registrar el pago (recargar datos)
-//   onCerrar        -> cierra el modal
-// Flujo por pasos: Datos -> Confirmación (modal) -> Resultado (información).
+//   onCerrar        -> vuelve a la página de cobranza
+// Flujo por pasos de página completa: Datos -> Confirmación -> Resultado.
 export default function RegistrarCobro({ prestamos, prestamoInicial, onRegistrado, onCerrar }) {
   const inicial = prestamos.find((p) => p.id === prestamoInicial) ?? null
   const cuotasIniciales = inicial?.cuotas ?? []
@@ -184,42 +183,13 @@ export default function RegistrarCobro({ prestamos, prestamoInicial, onRegistrad
 
   return (
     <>
-      <Modal
-        className="flujo-modal"
-        eyebrow="REGISTRO DE PAGO"
-        titulo={titulo}
-        subtitulo={prestamo ? `${etiquetaPrestamo(prestamo)} · ${prestamo.sucursal ?? '—'}` : undefined}
-        onCerrar={onCerrar}
-        bloquearCierre={enviando}
-        busy={enviando || cargandoCuotas}
-        acciones={(
-          <>
-            {paso === 'datos' && (
-              <button type="button" className="btn btn-secundario" onClick={onCerrar} disabled={enviando}>
-                Cancelar
-              </button>
-            )}
-            {paso === 'datos' && (
-              <button type="submit" form="form-cobro" className="btn" disabled={enviando || cargandoCuotas}>
-                Revisar y confirmar
-              </button>
-            )}
-            {paso === 'confirmar' && (
-              <button type="button" className="btn btn-secundario" onClick={() => setPaso('datos')} disabled={enviando}>
-                Volver a modificar
-              </button>
-            )}
-            {paso === 'confirmar' && (
-              <button type="button" className="btn" onClick={confirmar} disabled={enviando}>
-                {enviando ? 'Registrando…' : 'Confirmar registro'}
-              </button>
-            )}
-            {paso === 'listo' && (
-              <button type="button" className="btn" onClick={onCerrar}>Listo</button>
-            )}
-          </>
-        )}
-      >
+      <section className="pagina registro-cobro" aria-busy={enviando || cargandoCuotas}>
+        <header className="pagina-cabecera">
+          <p className="modulo-eyebrow">OPERACIÓN DE CARTERA</p>
+          <h1>{titulo}</h1>
+          <p>{prestamo ? `${etiquetaPrestamo(prestamo)} · ${prestamo.sucursal ?? '—'}` : 'Seleccione el préstamo y las cuotas a registrar.'}</p>
+        </header>
+        <div className="tarjeta registro-cobro-contenido">
         <ol className="flujo-credito" aria-label="Progreso del registro de cobro">
           {PASOS.map((p, i) => {
             const actual = (paso === 'datos' && i === 0) || (paso === 'confirmar' && i === 1) || (paso === 'listo' && i === 2)
@@ -400,7 +370,23 @@ export default function RegistrarCobro({ prestamos, prestamoInicial, onRegistrad
             </p>
           </div>
         )}
-      </Modal>
+          <footer className="registro-cobro-acciones">
+            {paso === 'datos' && (
+              <button type="button" className="btn btn-secundario" onClick={onCerrar} disabled={enviando}>Cancelar</button>
+            )}
+            {paso === 'datos' && (
+              <button type="submit" form="form-cobro" className="btn" disabled={enviando || cargandoCuotas}>Revisar y confirmar</button>
+            )}
+            {paso === 'confirmar' && (
+              <button type="button" className="btn btn-secundario" onClick={() => setPaso('datos')} disabled={enviando}>Volver a modificar</button>
+            )}
+            {paso === 'confirmar' && (
+              <button type="button" className="btn" onClick={confirmar} disabled={enviando}>{enviando ? 'Registrando…' : 'Confirmar registro'}</button>
+            )}
+            {paso === 'listo' && <button type="button" className="btn" onClick={onCerrar}>Listo</button>}
+          </footer>
+        </div>
+      </section>
 
       {dialogo && (
         <Dialogo
