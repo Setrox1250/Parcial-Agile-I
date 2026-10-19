@@ -32,7 +32,7 @@ MVP del Sistema de Préstamos Multisucursal (Sprint 01).
 ├── .github/workflows/
 │   ├── ci.yml                 # Lint + build frontend + chequeo Deno de funciones
 │   └── deploy-supabase.yml    # Despliegue automático de funciones en push a main
-└── docs/                      # Especificación (no versionada)
+└── docs/                      # Especificación y guías versionadas
 ```
 
 ## Ejecución local
