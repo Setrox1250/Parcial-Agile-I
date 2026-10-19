@@ -27,19 +27,19 @@ function exito(data) {
   return { ok: true, data }
 }
 
-export async function consultarRuc(ruc, representanteDni = '') {
+export async function consultarRuc(ruc, representanteDni = '', { confirmar = false } = {}) {
   if (!esRucValido(ruc)) {
     return fallo('RUC_INVALIDO', 'El RUC debe tener 11 dígitos con dígito verificador válido.')
   }
-  if (MOCK_ACTIVO) return consultarMock(ruc, representanteDni)
-  return consultarEnServicio(ruc, representanteDni)
+  if (MOCK_ACTIVO) return consultarMock(ruc, representanteDni, confirmar)
+  return consultarEnServicio(ruc, representanteDni, confirmar)
 }
 
-async function consultarEnServicio(ruc, representanteDni) {
+async function consultarEnServicio(ruc, representanteDni, confirmar) {
   try {
     const cuerpo = await llamarFuncion('ruc-lookup', {
       method: 'POST',
-      body: { ruc, representanteDni: representanteDni || undefined },
+      body: { ruc, representanteDni: representanteDni || undefined, confirmar },
     })
     if (cuerpo?.data) return exito(cuerpo.data)
     return fallo('PROVEEDOR_ERROR', 'Respuesta inesperada del servicio.')
@@ -75,6 +75,7 @@ const ESCENARIOS_MOCK = {
     ubigeo: '150113',
     estadoFicha: 'NUEVO',
     representanteEstado: 'REPRESENTANTE_NO_VALIDADO',
+    prestatarioId: '00000000-0000-4000-8000-000000000101',
   },
   '10609933700': {
     razonSocial: 'VALVERDE CEDRON SEBASTIAN',
@@ -89,10 +90,11 @@ const ESCENARIOS_MOCK = {
     representanteDni: '60993370',
     representanteRol: 'TITULAR',
     representanteEstado: 'VINCULADO',
+    prestatarioId: '00000000-0000-4000-8000-000000000102',
   },
 }
 
-async function consultarMock(ruc, representanteDni) {
+async function consultarMock(ruc, representanteDni, confirmar) {
   await new Promise((resolver) => setTimeout(resolver, 600))
 
   if (ruc.startsWith('205')) {
@@ -116,6 +118,7 @@ async function consultarMock(ruc, representanteDni) {
     ubigeo: '150101',
     estadoFicha: 'NUEVO',
     representanteEstado: representanteDni ? 'VINCULADO' : 'SIN_REPRESENTANTE',
+    prestatarioId: '00000000-0000-4000-8000-000000000199',
   }
 
   return exito({
@@ -124,5 +127,6 @@ async function consultarMock(ruc, representanteDni) {
     avisoPoderes:
       'Un RUC ACTIVO/HABIDO no acredita por sí solo las facultades del representante (B-07).',
     ...base,
+    requiereConfirmacion: !confirmar,
   })
 }

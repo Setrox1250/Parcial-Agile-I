@@ -35,6 +35,66 @@ END;
 $$;
 
 DO $$
+DECLARE
+    v_actor UUID;
+    v_sucursal UUID;
+    v_prestatario UUID;
+    v_prestamo UUID;
+    v_pago UUID;
+BEGIN
+    SELECT auth_user_id, sucursal_id
+      INTO v_actor, v_sucursal
+      FROM public.perfiles
+     WHERE activo = TRUE
+     ORDER BY creado_en
+     LIMIT 1;
+    INSERT INTO public.prestatarios (tipo, estado, creado_por)
+    VALUES ('PERSONA_NATURAL', 'NUEVO', v_actor)
+    RETURNING id INTO v_prestatario;
+
+    INSERT INTO public.prestamos (
+        prestatario_id, sucursal_id, creado_por, principal,
+        capital_insoluto, reserva_capital, plazo_meses, estado, idempotency_key
+    ) VALUES (
+        v_prestatario, v_sucursal, v_actor, 100,
+        0, 100, 12, 'PENDIENTE_DESEMBOLSO', 'hu10-auditoria-prestamo'
+    ) RETURNING id INTO v_prestamo;
+
+    PERFORM pg_temp.assert(
+        EXISTS (
+            SELECT 1 FROM public.auditoria
+             WHERE entidad = 'prestamos'
+               AND entidad_id = v_prestamo
+               AND actor = v_actor
+               AND sucursal_id = v_sucursal
+               AND correlacion = 'hu10-auditoria-prestamo'
+        ),
+        'CA-28: originación conserva actor, sede e idempotencia'
+    );
+
+    INSERT INTO public.pagos (
+        prestamo_id, monto, medio, estado, registra, confirma, confirmado_en,
+        idempotency_key
+    ) VALUES (
+        v_prestamo, 10, 'EFECTIVO', 'CONFIRMADO', v_actor, v_actor, now(),
+        'hu10-auditoria-pago'
+    ) RETURNING id INTO v_pago;
+
+    PERFORM pg_temp.assert(
+        EXISTS (
+            SELECT 1 FROM public.auditoria
+             WHERE entidad = 'pagos'
+               AND entidad_id = v_pago
+               AND actor = v_actor
+               AND sucursal_id = v_sucursal
+               AND correlacion = 'hu10-auditoria-pago'
+        ),
+        'CA-28: cobro conserva actor, sede e idempotencia'
+    );
+END;
+$$;
+
+DO $$
 DECLARE v_antiguo uuid; v_eliminados integer;
 BEGIN
     INSERT INTO public.auditoria (fecha, accion, entidad, resultado)

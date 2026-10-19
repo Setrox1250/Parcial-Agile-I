@@ -17,6 +17,7 @@ import '../identidad/identidad.css'
 // con la fuente de consulta; sin representante comprobado no se origina (CA-08).
 export default function EmpresaPage() {
   const [consultando, setConsultando] = useState(false)
+  const [confirmandoEmpresa, setConfirmandoEmpresa] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [paso, setPaso] = useState('empresa')
   const [revisionElegibilidad, setRevisionElegibilidad] = useState(0)
@@ -25,6 +26,59 @@ export default function EmpresaPage() {
   const [identidadRepresentante, setIdentidadRepresentante] = useState(null)
   const [consultandoIdentidadRepresentante, setConsultandoIdentidadRepresentante] = useState(false)
   const [errorRepresentante, setErrorRepresentante] = useState('')
+
+  async function consultarRepresentanteProveedor(ruc) {
+    if (!ruc.startsWith('20')) return null
+    setConsultandoRepresentante(true)
+    const consultaRepresentante = await consultarRepresentanteLegal(ruc)
+    setConsultandoRepresentante(false)
+    if (consultaRepresentante?.ok) {
+      setRepresentanteConsultado(consultaRepresentante.data)
+      return consultaRepresentante.data
+    }
+    if (consultaRepresentante && !consultaRepresentante.ok) {
+      setErrorRepresentante(consultaRepresentante.error.message || 'No se encontró al representante legal.')
+    }
+    return null
+  }
+
+  async function cargarRepresentante(respuesta, ruc, representanteInicial = null) {
+    let representante = representanteInicial ?? await consultarRepresentanteProveedor(ruc)
+
+    const dniRepresentante = representante?.dni
+      || respuesta.data?.representanteDni
+      || respuesta.data?.representanteDniSugerido
+    if (!dniRepresentante) return
+
+    if (!representante) {
+      representante = {
+        dni: dniRepresentante,
+        nombres: null,
+        cargo: respuesta.data?.representanteRol,
+        proveedor: 'APISPERU',
+      }
+      setRepresentanteConsultado(representante)
+    }
+    setResultado((actual) => actual?.ok
+      ? {
+          ...actual,
+          data: {
+            ...actual.data,
+            representanteDni: dniRepresentante,
+            representanteRol: representante.cargo || actual.data.representanteRol,
+            representanteEstado: actual.data.representanteEstado === 'ACREDITADO'
+              ? 'ACREDITADO'
+              : actual.data.representanteEstado === 'VINCULADO'
+                ? 'VINCULADO'
+                : 'REPRESENTANTE_NO_VALIDADO',
+          },
+        }
+      : actual)
+    setConsultandoIdentidadRepresentante(true)
+    const identidad = await consultarDni(dniRepresentante)
+    if (identidad.ok) setIdentidadRepresentante(identidad.data)
+    setConsultandoIdentidadRepresentante(false)
+  }
 
   async function manejarConsulta(ruc) {
     setConsultando(true)
@@ -37,51 +91,8 @@ export default function EmpresaPage() {
       const respuesta = await consultarRuc(ruc)
       setResultado(respuesta)
       if (respuesta.ok) {
-        let representante = null
-        setConsultandoRepresentante(true)
-        const consultaRepresentante = ruc.startsWith('20')
-          ? await consultarRepresentanteLegal(ruc)
-          : null
-        if (consultaRepresentante?.ok) {
-          representante = consultaRepresentante.data
-          setRepresentanteConsultado(representante)
-        } else if (consultaRepresentante && !consultaRepresentante.ok) {
-          setErrorRepresentante(consultaRepresentante.error.message || 'No se encontró al representante legal.')
-        }
-        setConsultandoRepresentante(false)
-
-        const dniRepresentante = representante?.dni
-          || respuesta.data?.representanteDni
-          || respuesta.data?.representanteDniSugerido
-        if (dniRepresentante) {
-          if (!representante) {
-            representante = {
-              dni: dniRepresentante,
-              nombres: null,
-              cargo: respuesta.data?.representanteRol,
-              proveedor: 'APISPERU',
-            }
-            setRepresentanteConsultado(representante)
-          }
-          setResultado((actual) => actual?.ok
-            ? {
-                ...actual,
-                data: {
-                  ...actual.data,
-                  representanteDni: dniRepresentante,
-                  representanteRol: representante.cargo || actual.data.representanteRol,
-                  representanteEstado: actual.data.representanteEstado === 'ACREDITADO'
-                    ? 'ACREDITADO'
-                    : 'VINCULADO',
-                },
-              }
-            : actual)
-          setConsultandoIdentidadRepresentante(true)
-          const identidad = await consultarDni(dniRepresentante)
-          if (identidad.ok) setIdentidadRepresentante(identidad.data)
-          setConsultandoIdentidadRepresentante(false)
-        }
-        setPaso(respuesta.data?.representanteEstado === 'ACREDITADO' ? 'elegibilidad' : 'representacion')
+        await consultarRepresentanteProveedor(ruc)
+        setPaso('confirmacion')
       }
     } catch {
       setResultado({
@@ -90,6 +101,26 @@ export default function EmpresaPage() {
       })
     } finally {
       setConsultando(false)
+    }
+  }
+
+  async function confirmarEmpresa() {
+    const ruc = resultado?.data?.numeroRuc
+    if (!ruc) return
+    setConfirmandoEmpresa(true)
+    setErrorRepresentante('')
+    try {
+      const respuesta = await consultarRuc(ruc, '', { confirmar: true })
+      setResultado(respuesta)
+      if (respuesta.ok) {
+        await cargarRepresentante(respuesta, ruc, representanteConsultado)
+        setPaso(respuesta.data?.representanteEstado === 'ACREDITADO' ? 'elegibilidad' : 'representacion')
+      }
+    } catch {
+      setResultado({ ok: false, error: { code: 'FALLO_RED', message: 'No se pudo confirmar la ficha de empresa.' } })
+      setPaso('empresa')
+    } finally {
+      setConfirmandoEmpresa(false)
     }
   }
 
@@ -135,12 +166,43 @@ export default function EmpresaPage() {
         </p>
       </header>
 
-      <FlujoCredito tipo="EMPRESA" pasoActual={paso === 'empresa' ? 0 : paso === 'representacion' ? 1 : paso === 'elegibilidad' ? 2 : 3} />
+      <FlujoCredito tipo="EMPRESA" pasoActual={paso === 'empresa' || paso === 'confirmacion' ? 0 : paso === 'representacion' ? 1 : paso === 'elegibilidad' ? 2 : 3} />
 
       {paso === 'empresa' && (
         <>
           <RucForm onConsultar={manejarConsulta} consultando={consultando} />
           {resultado && !resultado.ok && <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => setResultado(null)} />}
+        </>
+      )}
+
+      {paso === 'confirmacion' && resultado?.ok && (
+        <>
+          <div className="flujo-pagina-acciones">
+            <Boton type="button" variante="secundario" onClick={() => { setResultado(null); setPaso('empresa') }}>
+              Volver a consulta
+            </Boton>
+          </div>
+          <ResultadoEmpresa
+            resultado={resultado}
+            representanteConsultado={representanteConsultado}
+            consultandoRepresentante={consultandoRepresentante}
+            errorRepresentante={errorRepresentante}
+            onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }}
+          />
+          <Tarjeta titulo="Confirmar datos de la empresa">
+            <p className="nota">
+              Revisa la información devuelta por la fuente autorizada. La ficha global se registrará
+              únicamente después de confirmar estos datos.
+            </p>
+            <div className="flujo-pagina-acciones">
+              <Boton type="button" variante="secundario" onClick={() => { setResultado(null); setPaso('empresa') }}>
+                Cancelar
+              </Boton>
+              <Boton type="button" cargando={confirmandoEmpresa} onClick={confirmarEmpresa}>
+                {confirmandoEmpresa ? 'Confirmando…' : 'Confirmar datos y continuar'}
+              </Boton>
+            </div>
+          </Tarjeta>
         </>
       )}
 

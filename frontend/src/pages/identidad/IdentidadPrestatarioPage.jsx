@@ -32,7 +32,7 @@ export default function IdentidadPrestatarioPage() {
     try {
       const respuesta = await consultarDni(dni)
       setResultado(respuesta)
-      if (respuesta.ok) setPaso('elegibilidad')
+      if (respuesta.ok) setPaso('confirmacion')
     } catch {
       setResultado({
         ok: false,
@@ -57,12 +57,37 @@ export default function IdentidadPrestatarioPage() {
         </p>
       </header>
 
-      <FlujoCredito pasoActual={paso === 'identidad' ? 0 : paso === 'elegibilidad' ? 1 : 2} />
+      <FlujoCredito pasoActual={paso === 'identidad' || paso === 'confirmacion' ? 0 : paso === 'elegibilidad' ? 1 : 2} />
 
       {paso === 'identidad' && (
         <>
           <DniForm onConsultar={manejarConsulta} consultando={consultando} />
           {resultado && !resultado.ok && <ResultadoIdentidad resultado={resultado} onNuevaConsulta={() => setResultado(null)} />}
+        </>
+      )}
+
+      {paso === 'confirmacion' && resultado?.ok && (
+        <>
+          <div className="flujo-pagina-acciones">
+            <Boton type="button" variante="secundario" onClick={volverAIdentidad}>
+              Volver a consulta
+            </Boton>
+          </div>
+          <ResultadoIdentidad resultado={resultado} onNuevaConsulta={volverAIdentidad} />
+          <Tarjeta titulo="Continuar a elegibilidad">
+            <p className="nota">
+              La identidad fue verificada por el proveedor. Revisa los datos de solo lectura y
+              continúa para consultar el cupo global antes de originar un préstamo.
+            </p>
+            <div className="flujo-pagina-acciones">
+              <Boton type="button" variante="secundario" onClick={volverAIdentidad}>
+                Cancelar
+              </Boton>
+              <Boton type="button" onClick={() => setPaso('elegibilidad')}>
+                Continuar a elegibilidad
+              </Boton>
+            </div>
+          </Tarjeta>
         </>
       )}
 

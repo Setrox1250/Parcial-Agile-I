@@ -124,6 +124,7 @@ Deno.serve(async (req) => {
   }
 
   const ruc = typeof cuerpo?.ruc === "string" ? cuerpo.ruc.trim() : "";
+  const confirmar = cuerpo?.confirmar === true;
   if (!/^\d{11}$/.test(ruc)) {
     return errorResponse("El RUC debe tener exactamente 11 dígitos numéricos", 400, "RUC_INVALIDO");
   }
@@ -172,6 +173,41 @@ Deno.serve(async (req) => {
       "RUC_NO_HABIDO",
       { estado: estadoRuc, condicion: condicionRuc },
     );
+  }
+
+  // 3.4.2: la primera consulta solo muestra los datos cotejados. La ficha
+  // global se crea/reutiliza después de la confirmación explícita del operador.
+  if (!confirmar) {
+    let representanteDniSugerido = dniRepresentanteSolicitado || null;
+    let representanteRolSugerido = representanteDniSugerido ? "REPRESENTANTE_LEGAL" : null;
+    const derivado = dniDesdeRuc10(ruc);
+    if (!representanteDniSugerido && derivado) {
+      representanteDniSugerido = derivado;
+      representanteRolSugerido = "TITULAR";
+    }
+    await traza("ENCONTRADO", null, "found data; pendiente de confirmación");
+    return json({
+      data: {
+        numeroRuc: ruc,
+        razonSocial,
+        estado: estadoRuc,
+        condicion: condicionRuc,
+        direccion: texto(datos, "direccion") || null,
+        departamento: texto(datos, "departamento") || null,
+        provincia: texto(datos, "provincia") || null,
+        distrito: texto(datos, "distrito") || null,
+        ubigeo: texto(datos, "ubigeo") || null,
+        estadoFicha: "PENDIENTE_CONFIRMACION",
+        prestatarioId: null,
+        representanteDni: null,
+        representanteRol: representanteRolSugerido,
+        representanteDniSugerido,
+        representanteEstado: representanteDniSugerido ? "REPRESENTANTE_NO_VALIDADO" : "SIN_REPRESENTANTE",
+        requiereConfirmacion: true,
+        avisoPoderes:
+          "Un RUC ACTIVO/HABIDO no acredita por sí solo las facultades del representante (B-07).",
+      },
+    });
   }
 
   // Representante: RUC 10 embebe el DNI del titular; el resto lo recibe del formulario.
@@ -261,6 +297,7 @@ Deno.serve(async (req) => {
       distrito: texto(datos, "distrito") || null,
       ubigeo: texto(datos, "ubigeo") || null,
       estadoFicha: ficha.creado ? "NUEVO" : "EXISTENTE",
+      requiereConfirmacion: false,
       prestatarioId: ficha.prestatario_id,
       // Solo se declara representante vinculado cuando la RPC realmente lo vinculó;
       // el DNI derivado/pendiente se expone aparte para guiar la validación (HU-02).

@@ -2,6 +2,7 @@ import { handleCors } from "../_shared/cors.js";
 import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole } from "../_shared/auth.js";
 import { createAdminClient } from "../_shared/supabase.js";
+import { edadEnLima, normalizarFecha, normalizarNombre, primerValor } from "./validar.js";
 
 // HU-02 — Identidad de prestatarios naturales.
 // RN-01..RN-05 / CA-04..CA-06: DNI 8 dígitos, consulta real a Scrall
@@ -40,53 +41,6 @@ function excedeLimiteScrall() {
   if (marcasDeConsulta.length >= MAX_POR_VENTANA) return true;
   marcasDeConsulta.push(ahora);
   return false;
-}
-
-// Normaliza para comparar nombres (RN-05): sin acentos, espacios simples, mayúsculas.
-function normalizarNombre(texto) {
-  return String(texto ?? "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toUpperCase();
-}
-
-// El proveedor real entrega los campos como columnas RENIEC (D_NUDNI, D_PRENOMBRES,
-// ...); el blog documenta alias camelCase (nuDni, preNombres, ...). Se aceptan ambos.
-function primerValor(registro, claves) {
-  for (const clave of claves) {
-    const valor = registro?.[clave];
-    if (valor !== undefined && valor !== null && String(valor).trim() !== "") {
-      return String(valor).trim();
-    }
-  }
-  return "";
-}
-
-// Acepta YYYY-MM-DD (con o sin hora), DD/MM/YYYY y DD-MM-YYYY -> YYYY-MM-DD.
-function normalizarFecha(valor) {
-  const texto = String(valor ?? "").trim();
-  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const latina = texto.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (latina) {
-    const [, dia, mes, anio] = latina;
-    return `${anio}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
-  }
-  return "";
-}
-
-// Edad en calendario según la fecha actual de Lima (spec §3.1).
-function edadEnLima(fechaNacimiento) {
-  const hoyLima = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Lima",
-  }).format(new Date());
-  const [anioHoy, mesHoy, diaHoy] = hoyLima.split("-").map(Number);
-  const [anioNac, mesNac, diaNac] = fechaNacimiento.split("-").map(Number);
-  let edad = anioHoy - anioNac;
-  if (mesHoy < mesNac || (mesHoy === mesNac && diaHoy < diaNac)) edad -= 1;
-  return edad;
 }
 
 // Mapea los mensajes de Scrall (HTTP 200 con message) a errores tipificados.
