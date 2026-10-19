@@ -38,6 +38,10 @@ entrypoint = './functions/ruc-lookup/index.js'
 verify_jwt = true
 entrypoint = './functions/desembolso/index.js'
 
+[functions.pagos]
+verify_jwt = true
+entrypoint = './functions/pagos/index.js'
+
 [studio]
 port = 54329
 
