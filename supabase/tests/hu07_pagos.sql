@@ -1,7 +1,7 @@
 -- HU-07: pruebas SQL de pagos (registro, verificación, idempotencia,
--- inmutabilidad y privilegios). CP-12/CP-13 (imputación a cuotas y libera
--- cupo) quedan para la continuación con HU-05; esta base solo deja
--- `imputado_en` en NULL.
+-- inmutabilidad y privilegios). Incluye imputación a cuotas (S12): proceso
+-- PARCIAL/PAGADA, capital/interés, capital_insoluto y préstamo PAGADO
+-- (CP-12/CP-13, RN-11/RN-25) sobre préstamos CON cuotas.
 --
 -- Ejecutar (stack local arriba):
 --   docker exec -i supabase_db_parcial-agile psql -U postgres -d postgres \
@@ -14,31 +14,38 @@ BEGIN;
 -- Limpieza re-ejecutable de los DNIs de prueba de esta suite
 -- ---------------------------------------------------------------------------
 DELETE FROM auth.users WHERE email LIKE 'hu07-test%';
+DELETE FROM public.pagos_imputaciones
+WHERE pago_id IN (
+    SELECT pg.id FROM public.prestamos p
+    JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
+    JOIN public.pagos pg ON pg.prestamo_id = p.id
+    WHERE pn.dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828','81818181')
+);
 DELETE FROM public.pagos
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
     JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
-    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
+    WHERE pn.dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828','81818181')
 );
 DELETE FROM public.cuotas
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
     JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
-    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
+    WHERE pn.dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828','81818181')
 );
 DELETE FROM public.desembolsos
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
     JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
-    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
+    WHERE pn.dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828','81818181')
 );
 DELETE FROM public.prestamos
 WHERE prestatario_id IN (
     SELECT pn.prestatario_id FROM public.personas_naturales pn
-    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
+    WHERE pn.dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828','81818181')
 );
 DELETE FROM public.personas_naturales
-WHERE dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989');
+WHERE dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828','81818181');
 DELETE FROM public.prestatarios
 WHERE id NOT IN (SELECT prestatario_id FROM public.personas_naturales)
   AND id NOT IN (SELECT prestatario_id FROM public.empresas)
@@ -96,6 +103,22 @@ BEGIN
         v_p, (SELECT id FROM public.sucursales WHERE codigo = p_sucursal),
         p_principal, p_principal, 0, 0.30, 12, 'ACTIVO', now()
     ) RETURNING id INTO v_pl;
+    RETURN v_pl;
+END;
+$$;
+
+-- Préstamo ACTIVO CON cronograma (2 cuotas) para probar imputación real.
+CREATE FUNCTION pg_temp.crear_activo_con_cuotas(p_dni text, p_sucursal text, p_principal numeric)
+RETURNS uuid
+LANGUAGE plpgsql AS $$
+DECLARE v_pl uuid; v_cap1 numeric; v_cap2 numeric; v_int numeric := 50.00;
+BEGIN
+    v_pl := pg_temp.crear_activo(p_dni, p_sucursal, p_principal);
+    v_cap1 := round(p_principal / 2, 2);
+    v_cap2 := p_principal - v_cap1;
+    INSERT INTO public.cuotas (prestamo_id, numero, vencimiento, capital_programado, interes_programado, total_programado, estado)
+    SELECT v_pl, t.numero, CURRENT_DATE + make_interval(months => t.numero), t.cap, v_int, t.cap + v_int, 'PENDIENTE'
+    FROM (VALUES (1, v_cap1), (2, v_cap2)) AS t(numero, cap);
     RETURN v_pl;
 END;
 $$;
@@ -387,6 +410,73 @@ BEGIN
     PERFORM pg_temp.assert(
         (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.pagos'::regclass),
         'S11: RLS habilitada en pagos');
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- S12 (CP-12/CP-13/CP-17, RN-11/RN-20/RN-25): imputación real sobre un
+-- préstamo CON cuotas. Regresión del fix de cuota_id (uuid = text): antes de
+-- castear, todo cobro imputable fallaba y dejaba pagos sin imputar.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE v_pl uuid; v JSONB; v_pago uuid; v_imp_cap numeric; v_imp_int numeric;
+        v_est text; v_cap_ins numeric; v_est_prestamo text; v_n_imp int; v_ya JSONB;
+BEGIN
+    v_pl := pg_temp.crear_activo_con_cuotas('81818181', 'TRU', 1000);
+    -- Cuotas: 1 = 500 cap + 50 int (total 550); 2 = 500 cap + 50 int (total 550)
+
+    -- Pago 1: parcial a la cuota 1 (prioriza capital, RN-22)
+    v := public.registrar_pago(v_pl, 120, 'EFECTIVO', NULL, NULL, 'hu07-s12-p1');
+    PERFORM pg_temp.assert((v->>'ok')::boolean, 'S12: efectivo imputable registrado sin error');
+    v_pago := (v->>'pago_id')::uuid;
+
+    PERFORM pg_temp.assert(
+        (SELECT imputado_en IS NOT NULL FROM public.pagos WHERE id = v_pago),
+        'S12: pago imputado (imputado_en marcado)');
+
+    SELECT t.total_capital, t.total_interes
+      INTO v_imp_cap, v_imp_int
+      FROM public.cuotas_totales_imputados t
+      JOIN public.cuotas c ON c.id = t.cuota_id
+     WHERE c.prestamo_id = v_pl AND c.numero = 1;
+    PERFORM pg_temp.assert(v_imp_cap = 120 AND v_imp_int = 0,
+        'S12: cuota 1 abonada 120 capital / 0 interés (RN-22)');
+
+    SELECT estado INTO v_est FROM public.cuotas WHERE prestamo_id = v_pl AND numero = 1;
+    PERFORM pg_temp.assert(v_est = 'PARCIAL', 'S12: cuota 1 PARCIAL (RN-20)');
+
+    SELECT COUNT(*) INTO v_n_imp FROM public.pagos_imputaciones WHERE pago_id = v_pago;
+    PERFORM pg_temp.assert(v_n_imp = 1, 'S12: una imputación registrada');
+
+    SELECT capital_insoluto, estado INTO v_cap_ins, v_est_prestamo
+      FROM public.prestamos WHERE id = v_pl;
+    PERFORM pg_temp.assert(v_cap_ins = 880 AND v_est_prestamo = 'ACTIVO',
+        'S12: capital_insoluto 880 y préstamo sigue ACTIVO (RN-11)');
+
+    -- Re-llamada idempotente de la imputación (CP-13)
+    v_ya := public.imputar_pago_confirmado(v_pago);
+    PERFORM pg_temp.assert((v_ya->>'ok')::boolean AND (v_ya->>'idempotente')::boolean,
+        'S12: re-imputar es idempotente (YA_IMPUTADO)');
+
+    -- Pago 2: cubre el resto de la cuota 1 (550 - 120 = 430) -> PAGADA
+    v := public.registrar_pago(v_pl, 430, 'EFECTIVO', NULL, NULL, 'hu07-s12-p2');
+    PERFORM pg_temp.assert((v->>'ok')::boolean, 'S12: segundo efectivo registrado');
+    SELECT estado INTO v_est FROM public.cuotas WHERE prestamo_id = v_pl AND numero = 1;
+    PERFORM pg_temp.assert(v_est = 'PAGADA', 'S12: cuota 1 PAGADA al cubrirse (RN-20)');
+    SELECT estado INTO v_est FROM public.cuotas WHERE prestamo_id = v_pl AND numero = 2;
+    PERFORM pg_temp.assert(v_est = 'PENDIENTE', 'S12: cuota 2 intacta (orden antiguo primero)');
+    SELECT capital_insoluto INTO v_cap_ins FROM public.prestamos WHERE id = v_pl;
+    PERFORM pg_temp.assert(v_cap_ins = 500, 'S12: capital_insoluto 500 tras amortizar 380');
+
+    -- Pago 3: cubre la cuota 2 completa -> préstamo PAGADO (RN-25)
+    v := public.registrar_pago(v_pl, 550, 'EFECTIVO', NULL, NULL, 'hu07-s12-p3');
+    PERFORM pg_temp.assert((v->>'ok')::boolean, 'S12: tercer efectivo registrado');
+    SELECT estado, capital_insoluto INTO v_est_prestamo, v_cap_ins
+      FROM public.prestamos WHERE id = v_pl;
+    PERFORM pg_temp.assert(v_est_prestamo = 'PAGADO' AND v_cap_ins = 0,
+        'S12: préstamo PAGADO con capital_insoluto 0 (RN-25/CP-26)');
+    PERFORM pg_temp.assert(
+        (SELECT COUNT(*) FROM public.cuotas WHERE prestamo_id = v_pl AND estado = 'PAGADA') = 2,
+        'S12: las 2 cuotas PAGADAS');
 END $$;
 
 COMMIT;
