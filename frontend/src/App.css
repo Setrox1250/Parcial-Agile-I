@@ -151,13 +151,16 @@
 .cobranza-nota-cuotas { margin-top: 11px; }
 
 .flujo-modal-fondo { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; background: rgba(11, 28, 40, .58); backdrop-filter: blur(3px); }
-.flujo-modal { display: flex; flex-direction: column; width: min(1000px, 100%); max-height: min(90vh, 900px); overflow: hidden; border: 1px solid #dbe5ec; border-radius: 18px; background: #f8fafc; box-shadow: 0 24px 80px rgba(5, 23, 37, .3); }
+.flujo-modal { display: flex; flex-direction: column; width: min(1000px, 100%); max-height: min(90vh, 900px); max-height: min(90dvh, 900px); overflow: hidden; border: 1px solid #dbe5ec; border-radius: 18px; background: #f8fafc; box-shadow: 0 24px 80px rgba(5, 23, 37, .3); }
 .flujo-modal-cabecera { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 26px; border-bottom: 1px solid #e2e8f0; background: #fff; }
 .flujo-modal-cabecera span { color: #087f8c; font-size: .7rem; font-weight: 800; letter-spacing: .1em; }
 .flujo-modal-cabecera h2 { margin: 4px 0 0; color: #102b3a; font-size: 1.25rem; }
 .flujo-modal-cerrar { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border: 1px solid #dbe5ec; border-radius: 12px; background: #f8fafc; color: #334155; font-size: 1.5rem; cursor: pointer; }
 .flujo-modal-cerrar:hover { border-color: #94a3b8; background: #eef4f7; }
-.flujo-modal-contenido { overflow: auto; padding: 16px 24px 24px; overscroll-behavior: contain; }
+.flujo-modal-contenido { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 16px 24px 24px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-gutter: stable; }
+/* Los hijos no deben encogerse: con overflow propio (p. ej. .tarjeta) su altura
+   mínima automática es 0 y se recortarían, ocultando botones sin generar scroll. */
+.flujo-modal-contenido > * { flex: 0 0 auto; }
 .flujo-modal-contenido > .tarjeta { margin: 0 0 16px; }
 .flujo-modal-contenido > .tarjeta:last-child { margin-bottom: 0; }
 .flujo-modal-contenido > .aviso { margin-top: 0; }
@@ -260,10 +263,13 @@ input:focus, select:focus { border-color: #68b8bb; box-shadow: 0 0 0 3px rgba(8,
   .buscador-global { order: 3; min-width: 100%; }
 }
 @media (max-width: 680px) {
-  .flujo-modal-fondo { padding: 0; }
-  .flujo-modal { width: 100%; height: 100%; max-height: 100%; border: 0; border-radius: 0; }
-  .flujo-modal-cabecera { padding: 16px; }
-  .flujo-modal-contenido { padding: 14px 12px 16px; }
+  /* En pantallas pequeñas el modal se comporta como una hoja que scrollea
+     completa: cabecera y pie quedan fijos dentro de ella, así las acciones
+     siempre son alcanzables. */
+  .flujo-modal-fondo { display: block; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; }
+  .flujo-modal { width: 100%; height: auto; min-height: 100%; max-height: none; border: 0; border-radius: 0; overflow: visible; }
+  .flujo-modal-cabecera { position: sticky; top: 0; z-index: 3; padding: 16px; }
+  .flujo-modal-contenido { overflow: visible; padding: 14px 12px 16px; }
   .cobranza-abrir { align-items: stretch; flex-direction: column; }
   .navegacion-superior { position: sticky; min-height: auto; flex-wrap: wrap; gap: 10px; padding: 12px 16px 8px; }
   .navegacion-superior .marca { flex: 1 1 40%; padding-left: 44px; }
@@ -484,4 +490,38 @@ input:focus, select:focus { border-color: #68b8bb; box-shadow: 0 0 0 3px rgba(8,
 @media (max-width: 440px) {
   .login-panel { padding: 0; }
   .login-tarjeta h2 { font-size: 1.75rem; }
+}
+
+/* Cobro compartido (Cobranza y vista 360) */
+.flujo-modal-pie {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 26px max(20px, env(safe-area-inset-bottom));
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+.cobranza-aviso-formulario { grid-column: 1 / -1; margin: 0; }
+.cobranza-confirmacion { display: flex; flex-direction: column; gap: 16px; }
+.cobranza-confirmacion-nota {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #cce4e5;
+  border-radius: 10px;
+  background: #f0f8f8;
+  color: #3d6570;
+  font-size: .86rem;
+}
+.cobranza-confirmacion-datos { gap: 20px 40px; }
+.cobranza-confirmacion-datos dd { white-space: nowrap; }
+@media (max-width: 680px) {
+  .flujo-modal-pie {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding: 12px 14px max(16px, env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 16px rgba(16, 43, 58, .06);
+  }
 }
