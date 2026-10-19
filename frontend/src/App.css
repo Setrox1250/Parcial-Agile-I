@@ -447,9 +447,13 @@ input:focus, select:focus { border-color: #68b8bb; box-shadow: 0 0 0 3px rgba(8,
 .login-beneficios li { display: flex; align-items: center; gap: 9px; }
 .login-beneficios span { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: rgba(91, 221, 213, .16); color: #78e3dc; font-size: .68rem; font-weight: 800; }
 .login-pie-presentacion { position: relative; z-index: 1; margin: 0; color: #a6c4c9; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.login-panel { display: grid; place-items: center; padding: 36px; background: #f8fbfc; }
+.login-panel { display: block; padding: 0; background: #f8fbfc; }
 .login-tarjeta {
-  width: min(100%, 430px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
   margin: 0;
   padding: 0;
   border: 0;
@@ -474,10 +478,10 @@ input:focus, select:focus { border-color: #68b8bb; box-shadow: 0 0 0 3px rgba(8,
 @media (max-width: 860px) {
   .login-pantalla { grid-template-columns: 1fr; }
   .login-presentacion { display: none; }
-  .login-panel { min-height: 100vh; padding: 32px 24px; }
+  .login-panel { min-height: 100vh; padding: 0; }
   .login-marca-mobile { display: inline-flex; }
 }
 @media (max-width: 440px) {
-  .login-panel { padding: 26px 20px; }
+  .login-panel { padding: 0; }
   .login-tarjeta h2 { font-size: 1.75rem; }
 }
