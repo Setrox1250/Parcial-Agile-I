@@ -138,15 +138,16 @@ export default function ConsultaPage() {
   return (
     <section className="pagina consulta">
       <header className="pagina-cabecera">
-        <h1>Consulta de clientes</h1>
-        <p>Filtra el directorio por nombre, DNI o RUC. Cada cliente permite consultar pagos o asignar un nuevo prestamo.</p>
+        <p className="modulo-eyebrow">EXPEDIENTES</p>
+        <h1>Directorio y vista 360</h1>
+        <p>Encuentra por nombre, DNI o RUC y consulta el contexto de crédito, cupo y pagos de cada cliente.</p>
       </header>
 
       {error && <Alerta tipo="error">{error.message}</Alerta>}
 
       <Tarjeta
         className="consulta-directorio"
-        titulo={`Directorio de prestatarios (${filtrados.length})`}
+        titulo={`Expedientes registrados (${filtrados.length})`}
         accion={(
           <div className="consulta-filtro">
             <label htmlFor="filtro-prestatarios">Buscar por nombre o documento</label>

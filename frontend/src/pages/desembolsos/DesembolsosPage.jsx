@@ -100,24 +100,30 @@ export default function DesembolsosPage() {
   }
 
   return (
-    <section>
-      <h1>Desembolsos</h1>
-      <p>
-        Confirme la entrega de dinero para activar el préstamo (CA-16) o anule la reserva antes de
-        desembolsar (CA-17). El cupo liberado por la anulación vuelve a estar disponible.
-      </p>
+    <section className="modulo-operativo">
+      <header className="modulo-cabecera">
+        <div>
+          <p className="modulo-eyebrow">OPERACIÓN DE CARTERA</p>
+          <h1>Desembolsos</h1>
+          <p>Confirma la entrega para activar el préstamo o libera una reserva que no continuará.</p>
+        </div>
+        <span className="modulo-contador">{pendientes.length} por resolver</span>
+      </header>
 
       {error && <div className="aviso aviso-error">{error}</div>}
       {mensaje && <div className="aviso aviso-ok">{mensaje}</div>}
 
-      <div className="tarjeta">
-        <h2>Pendientes de desembolso</h2>
+      <div className="tarjeta cola-operativa">
+        <div className="cola-operativa-cabecera">
+          <div><p className="tarjeta-eyebrow">COLA DE TRABAJO</p><h2>Pendientes de desembolso</h2></div>
+          <span>Activa o anula cada reserva</span>
+        </div>
         {cargando ? (
           <p className="cargando">Cargando…</p>
         ) : pendientes.length === 0 ? (
           <p>No hay préstamos pendientes de desembolso en su ámbito.</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-envoltura"><table className="tabla">
             <thead>
               <tr>
                 <th>Prestatario</th>
@@ -193,16 +199,19 @@ export default function DesembolsosPage() {
                 )
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
-      <div className="tarjeta">
-        <h2>Evidencia de desembolsos confirmados</h2>
+      <div className="tarjeta cola-operativa">
+        <div className="cola-operativa-cabecera">
+          <div><p className="tarjeta-eyebrow">HISTORIAL</p><h2>Evidencia de desembolsos confirmados</h2></div>
+          <span>Últimas operaciones de tu ámbito</span>
+        </div>
         {historial.length === 0 ? (
           <p>Sin desembolsos confirmados todavía.</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-envoltura"><table className="tabla">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -223,7 +232,7 @@ export default function DesembolsosPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </section>

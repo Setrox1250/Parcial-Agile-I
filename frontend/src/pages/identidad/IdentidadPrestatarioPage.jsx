@@ -5,6 +5,7 @@ import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilid
 import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import { consultarDni } from '../../services/dni.js'
+import FlujoCredito from '../../components/operacion/FlujoCredito.jsx'
 import './identidad.css'
 
 // HU-02 — Identidad de prestatarios naturales.
@@ -65,12 +66,14 @@ export default function IdentidadPrestatarioPage() {
   return (
     <section className="pagina">
       <header className="pagina-cabecera">
-        <h1>Identidad de prestatario</h1>
+        <p className="modulo-eyebrow">NUEVA OPERACIÓN</p>
+        <h1>Originar crédito para persona</h1>
         <p>
-          Ingrese el DNI de 8 dígitos: el nombre y los datos se recuperan del proveedor de
-          identidad, sin digitación manual.
+          Identifica al cliente por DNI y avanza de forma guiada hasta la reserva del crédito.
         </p>
       </header>
+
+      <FlujoCredito verificado={Boolean(resultado?.ok)} originando={originando} />
 
       <DniForm onConsultar={manejarConsulta} consultando={consultando} />
 
@@ -79,12 +82,13 @@ export default function IdentidadPrestatarioPage() {
           <section ref={dialogoRef} className="flujo-modal" role="dialog" aria-modal="true" aria-labelledby="identidad-modal-titulo">
             <header className="flujo-modal-cabecera">
               <div>
-                <span>IDENTIDAD Y ELEGIBILIDAD</span>
-                <h2 id="identidad-modal-titulo">{resultado.ok ? 'Resultado de la consulta' : 'No se pudo verificar'}</h2>
+                <span>EXPEDIENTE EN ORIGINACIÓN</span>
+                <h2 id="identidad-modal-titulo">{resultado.ok ? 'Continúa con la evaluación del cliente' : 'No se pudo verificar la identidad'}</h2>
               </div>
               <button type="button" className="flujo-modal-cerrar" aria-label="Cerrar resultado" onClick={cerrarResultado}>×</button>
             </header>
             <div className="flujo-modal-contenido">
+              <FlujoCredito verificado={Boolean(resultado.ok)} originando={originando} />
               <ResultadoIdentidad resultado={resultado} onNuevaConsulta={cerrarResultado} />
 
               {/* HU-04: cupo global y bloqueos tras verificar la identidad (4.5.x). */}

@@ -86,13 +86,21 @@ export default function Usuarios() {
   }
 
   return (
-    <section>
-      <h1>Usuarios</h1>
+    <section className="modulo-operativo">
+      <header className="modulo-cabecera">
+        <div>
+          <p className="modulo-eyebrow">ADMINISTRACIÓN</p>
+          <h1>Usuarios y accesos</h1>
+          <p>Administra quién puede operar y el ámbito de sucursal asignado a cada perfil.</p>
+        </div>
+        <span className="modulo-contador">{perfiles.length} usuarios</span>
+      </header>
 
       {error && <div className="aviso aviso-error">{error}</div>}
       {mensaje && <div className="aviso aviso-ok">{mensaje}</div>}
 
-      <div className="tarjeta">
+      <div className="tarjeta filtros-operativos">
+        <p className="tarjeta-eyebrow">NUEVO ACCESO</p>
         <h2>Crear usuario</h2>
         <form className="formulario" onSubmit={crear}>
           <label>
@@ -142,12 +150,12 @@ export default function Usuarios() {
         </form>
       </div>
 
-      <div className="tarjeta">
-        <h2>Listado</h2>
+      <div className="tarjeta cola-operativa">
+        <div className="cola-operativa-cabecera"><div><p className="tarjeta-eyebrow">DIRECTORIO</p><h2>Usuarios registrados</h2></div><span>Activa o suspende el acceso</span></div>
         {cargando ? (
           <p className="cargando">Cargando…</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-envoltura"><table className="tabla">
             <thead>
               <tr>
                 <th>Nombre</th>
@@ -178,7 +186,7 @@ export default function Usuarios() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </section>

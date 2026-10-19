@@ -5,24 +5,49 @@ import { useAuth } from '../context/AuthContext'
 // Menú por rol: solo secciones realmente implementadas (1.8.1).
 const MENU = {
   ADMIN: [
-    { a: '/', texto: 'Inicio' },
-    { a: '/identidad', texto: 'Identidad' },
-    { a: '/empresa', texto: 'Empresa' },
-    { a: '/consulta', texto: 'Consulta' },
-    { a: '/desembolsos', texto: 'Desembolsos' },
-    { a: '/cobranzas', texto: 'Cobranza' },
-    { a: '/mora', texto: 'Mora' },
-    { a: '/auditoria', texto: 'Auditoría' },
-    { a: '/usuarios', texto: 'Usuarios' },
+    { etiqueta: 'Inicio', items: [{ a: '/', texto: 'Resumen', icono: '⌂' }] },
+    {
+      etiqueta: 'Originación',
+      items: [
+        { a: '/identidad', texto: 'Nuevo crédito', icono: '+' },
+        { a: '/empresa', texto: 'Empresa', icono: '▦' },
+        { a: '/consulta', texto: 'Expedientes', icono: '◫' },
+      ],
+    },
+    {
+      etiqueta: 'Cartera',
+      items: [
+        { a: '/desembolsos', texto: 'Desembolsos', icono: '↗' },
+        { a: '/cobranzas', texto: 'Cobranza', icono: '◌' },
+        { a: '/mora', texto: 'Mora', icono: '!' },
+      ],
+    },
+    {
+      etiqueta: 'Control',
+      items: [
+        { a: '/auditoria', texto: 'Auditoría', icono: '≡' },
+        { a: '/usuarios', texto: 'Usuarios', icono: '◉' },
+      ],
+    },
   ],
   SUPERVISOR_FINANCIERO: [
-    { a: '/', texto: 'Inicio' },
-    { a: '/identidad', texto: 'Identidad' },
-    { a: '/empresa', texto: 'Empresa' },
-    { a: '/consulta', texto: 'Consulta' },
-    { a: '/desembolsos', texto: 'Desembolsos' },
-    { a: '/cobranzas', texto: 'Cobranza' },
-    { a: '/mora', texto: 'Mora' },
+    { etiqueta: 'Inicio', items: [{ a: '/', texto: 'Resumen', icono: '⌂' }] },
+    {
+      etiqueta: 'Originación',
+      items: [
+        { a: '/identidad', texto: 'Nuevo crédito', icono: '+' },
+        { a: '/empresa', texto: 'Empresa', icono: '▦' },
+        { a: '/consulta', texto: 'Expedientes', icono: '◫' },
+      ],
+    },
+    {
+      etiqueta: 'Cartera',
+      items: [
+        { a: '/desembolsos', texto: 'Desembolsos', icono: '↗' },
+        { a: '/cobranzas', texto: 'Cobranza', icono: '◌' },
+        { a: '/mora', texto: 'Mora', icono: '!' },
+      ],
+    },
   ],
 }
 
@@ -47,12 +72,21 @@ export default function Layout() {
     <div className="app-shell">
         <div className="principal">
           <div className="navegacion-superior">
-            <div className="marca">Préstamos Multisucursal</div>
+            <div className="marca">
+              <span>Préstamos</span>
+              <small>Operaciones multisucursal</small>
+            </div>
             <nav className="menu-principal" aria-label="Navegación principal">
-              {(MENU[usuario.rol] ?? []).map((item) => (
-                <NavLink key={item.a} to={item.a} end={item.a === '/'}>
-                  {item.texto}
-                </NavLink>
+              {(MENU[usuario.rol] ?? []).map((grupo) => (
+                <div className="menu-grupo" key={grupo.etiqueta}>
+                  <span className="menu-grupo-etiqueta">{grupo.etiqueta}</span>
+                  {grupo.items.map((item) => (
+                    <NavLink key={item.a} to={item.a} end={item.a === '/'}>
+                      <span aria-hidden="true" className="menu-icono">{item.icono}</span>
+                      {item.texto}
+                    </NavLink>
+                  ))}
+                </div>
               ))}
             </nav>
             <div className="perfil-nav">

@@ -80,14 +80,14 @@ export default function TarjetaElegibilidad({ prestatarioId, onRegistrar }) {
 
   return (
     <Tarjeta
-      titulo="Cupo global"
+      titulo="Decisión de crédito · cupo global"
       accion={
         <Boton
           type="button"
           onClick={onRegistrar}
           disabled={!elegible || typeof onRegistrar !== 'function'}
         >
-          Registrar préstamo
+          Continuar con la oferta
         </Boton>
       }
     >
