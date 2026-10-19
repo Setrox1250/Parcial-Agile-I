@@ -22,7 +22,7 @@ BEGIN
     FROM public.personas_naturales WHERE dni = '11111111';
 
     IF v_id IS NOT NULL THEN
-        DELETE FROM public.expdedientes_extrajudicial
+        DELETE FROM public.expedientes_extrajudicial
         WHERE prestamo_id IN (SELECT id FROM public.prestamos WHERE prestatario_id = v_id);
         DELETE FROM public.eventos_mora
         WHERE prestamo_id IN (SELECT id FROM public.prestamos WHERE prestatario_id = v_id);

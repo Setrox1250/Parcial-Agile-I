@@ -13,7 +13,7 @@ BEGIN;
 -- Limpieza re-ejecutable de los DNIs de prueba
 -- (HU-03: el detalle DNI vive en personas_naturales)
 -- ---------------------------------------------------------------------------
-DELETE FROM public.expdedientes_extrajudicial
+DELETE FROM public.expedientes_extrajudicial
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
     JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
@@ -269,7 +269,7 @@ BEGIN
     VALUES (v_prestamo, CURRENT_DATE - 400, CURRENT_DATE - 10, 80.00)
     RETURNING id INTO v_evento;
 
-    INSERT INTO public.expdedientes_extrajudicial (
+    INSERT INTO public.expedientes_extrajudicial (
         prestamo_id, evento_mora_id, fecha_escalamiento, estado
     ) VALUES (v_prestamo, v_evento, CURRENT_DATE - 10, 'ABIERTO');
 
@@ -279,12 +279,12 @@ BEGIN
     PERFORM pg_temp.assert(NOT (v->>'elegible')::boolean AND v->>'motivo' = 'EXTRAJUDICIAL',
         'S7 (CP-15): EXTRAJUDICIAL -> rechazado aunque haya cupo (RN-15)');
 
-    UPDATE public.expdedientes_extrajudicial SET estado = 'CERRADO' WHERE prestamo_id = v_prestamo;
+    UPDATE public.expedientes_extrajudicial SET estado = 'CERRADO' WHERE prestamo_id = v_prestamo;
 
     v := public.evaluar_elegibilidad(v_p, 1);
     PERFORM pg_temp.assert((v->>'elegible')::boolean, 'S7: expediente cerrado -> sin bloqueo activo');
 
-    SELECT COUNT(*) INTO v_n FROM public.expdedientes_extrajudicial WHERE prestamo_id = v_prestamo;
+    SELECT COUNT(*) INTO v_n FROM public.expedientes_extrajudicial WHERE prestamo_id = v_prestamo;
     PERFORM pg_temp.assert(v_n = 1, 'S7 (RN-28): el expediente histórico se conserva');
 END $$;
 
