@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Usuarios from './pages/Usuarios'
 import IdentidadPrestatarioPage from './pages/identidad/IdentidadPrestatarioPage'
 import EmpresaPage from './pages/empresa/EmpresaPage'
+import DesembolsosPage from './pages/desembolsos/DesembolsosPage'
 import './App.css'
 
 function App() {
@@ -18,6 +19,14 @@ function App() {
           <Route index element={<Inicio />} />
           <Route path="/identidad" element={<IdentidadPrestatarioPage />} />
           <Route path="/empresa" element={<EmpresaPage />} />
+          <Route
+            path="/desembolsos"
+            element={
+              <RequireRole roles={['ADMIN', 'SUPERVISOR_FINANCIERO']}>
+                <DesembolsosPage />
+              </RequireRole>
+            }
+          />
           <Route
             path="/usuarios"
             element={

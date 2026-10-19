@@ -7,12 +7,14 @@ const MENU = {
     { a: '/', texto: 'Inicio' },
     { a: '/identidad', texto: 'Identidad' },
     { a: '/empresa', texto: 'Empresa' },
+    { a: '/desembolsos', texto: 'Desembolsos' },
     { a: '/usuarios', texto: 'Usuarios' },
   ],
   SUPERVISOR_FINANCIERO: [
     { a: '/', texto: 'Inicio' },
     { a: '/identidad', texto: 'Identidad' },
     { a: '/empresa', texto: 'Empresa' },
+    { a: '/desembolsos', texto: 'Desembolsos' },
   ],
 }
 
