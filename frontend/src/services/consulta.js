@@ -38,6 +38,16 @@ export async function buscarPrestatario({ dni, ruc }) {
   }
 }
 
+export async function listarPrestatarios() {
+  try {
+    const cuerpo = await llamarFuncion('prestatarios', { path: '/lista' })
+    if (Array.isArray(cuerpo?.prestatarios)) return { ok: true, data: cuerpo.prestatarios }
+    return fallo('RESPUESTA_INESPERADA', 'Respuesta inesperada al cargar prestatarios.')
+  } catch (error) {
+    return mapearError(error, 'No se pudo cargar la lista de prestatarios.')
+  }
+}
+
 export async function obtenerHistorial(prestatarioId) {
   try {
     const cuerpo = await llamarFuncion('prestatarios', { path: `/${prestatarioId}/historial` })

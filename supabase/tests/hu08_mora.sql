@@ -176,6 +176,34 @@ BEGIN
         'S4 (RN-38): existe la ejecución diaria programada');
 END $$;
 
+-- El cron y el reproceso manual pasan por una envoltura con reintentos y un
+-- registro operativo, sin abrir acceso directo a anon/authenticated.
+DO $$
+DECLARE v jsonb; v_ejecucion uuid;
+BEGIN
+    v := public.procesar_mora_con_reintentos(DATE '2026-01-11', 3::smallint);
+    v_ejecucion := (v->>'ejecucion_id')::uuid;
+    PERFORM pg_temp.assert((v->>'ok')::boolean AND (v->>'intentos')::integer = 1,
+        'S5: proceso de mora exitoso queda registrado en el primer intento');
+    PERFORM pg_temp.assert(EXISTS (
+        SELECT 1 FROM public.ejecuciones_mora
+        WHERE ejecucion_id = v_ejecucion AND intento = 1 AND estado = 'EXITOSO'
+    ), 'S5: el log conserva resultado y fecha operativa de la ejecución');
+    PERFORM pg_temp.assert(
+        NOT has_function_privilege('anon', 'public.procesar_mora_con_reintentos(date,smallint)', 'EXECUTE')
+        AND NOT has_function_privilege('authenticated', 'public.procesar_mora_con_reintentos(date,smallint)', 'EXECUTE')
+        AND has_function_privilege('service_role', 'public.procesar_mora_con_reintentos(date,smallint)', 'EXECUTE'),
+        'S5: el reproceso con reintentos solo es ejecutable por service_role');
+    PERFORM pg_temp.assert(
+        (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.ejecuciones_mora'::regclass),
+        'S5: RLS permanece habilitada en el log de ejecuciones');
+    PERFORM pg_temp.assert(EXISTS (
+        SELECT 1 FROM cron.job
+        WHERE jobname = 'procesar-mora-diaria-lima'
+          AND command LIKE '%procesar_mora_con_reintentos%'
+    ), 'S5: el cron diario usa la envoltura con reintentos');
+END $$;
+
 COMMIT;
 
 SELECT 'HU08: TODAS LAS PRUEBAS SQL PASARON' AS resultado;

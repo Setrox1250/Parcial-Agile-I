@@ -1,8 +1,9 @@
 // HU-09: consultas globales de prestatarios (CA-25..CA-27, RN-01/RN-16/17/28/36).
 //   GET /prestatarios/buscar?dni=|ruc=      -> ficha única consolidada (9.1)
 //   GET /prestatarios/<uuid>/historial      -> vista consolidada (9.2)
-// Solo lectura (CA-27): no existen rutas de escritura ni borrado. Cualquier
-// rol activo consulta la misma ficha global multisucursal (RN-36).
+//   GET /prestatarios/lista                -> directorio limitado por rol/sede
+// Solo lectura (CA-27). ADMIN consulta globalmente; SUPERVISOR solo ve clientes
+// asociados a su sede (por alta de ficha o por préstamos de esa sede).
 import { handleCors } from "../_shared/cors.js";
 import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole } from "../_shared/auth.js";
@@ -12,7 +13,7 @@ import { parsearBusqueda, parsearRutaHistorial } from "./validar.js";
 const IDENTIDAD_NATURAL =
   "prestatario_id, dni, nombres, apellido_paterno, apellido_materno";
 const IDENTIDAD_EMPRESA = "prestatario_id, ruc, razon_social, estado_ruc";
-// RN-36: ambos roles del MVP leen la misma ficha global multisucursal.
+// ADMIN consulta globalmente; SUPERVISOR_FINANCIERO se limita a su sede.
 const ROLES = ["ADMIN", "SUPERVISOR_FINANCIERO"];
 
 function identidadNatural(pn) {
@@ -27,6 +28,121 @@ function identidadNatural(pn) {
 
 function identidadEmpresa(em) {
   return { ruc: em.ruc, razonSocial: em.razon_social, estadoRuc: em.estado_ruc };
+}
+
+async function idsPrestatariosSucursal(admin, sucursalId) {
+  const ids = new Set();
+  const pagina = 500;
+
+  for (let desde = 0; ; desde += pagina) {
+    const { data, error } = await admin
+      .from("prestamos")
+      .select("prestatario_id")
+      .eq("sucursal_id", sucursalId)
+      .order("prestatario_id")
+      .range(desde, desde + pagina - 1);
+    if (error) return { ids: null, error };
+    for (const fila of data ?? []) if (fila.prestatario_id) ids.add(fila.prestatario_id);
+    if (!data || data.length < pagina) break;
+  }
+
+  const usuarios = [];
+  for (let desde = 0; ; desde += pagina) {
+    const { data, error } = await admin
+      .from("perfiles")
+      .select("auth_user_id")
+      .eq("sucursal_id", sucursalId)
+      .order("auth_user_id")
+      .range(desde, desde + pagina - 1);
+    if (error) return { ids: null, error };
+    usuarios.push(...(data ?? []).map((fila) => fila.auth_user_id).filter(Boolean));
+    if (!data || data.length < pagina) break;
+  }
+
+  for (let desde = 0; desde < usuarios.length; desde += pagina) {
+    const bloque = usuarios.slice(desde, desde + pagina);
+    const { data, error } = await admin
+      .from("prestatarios")
+      .select("id")
+      .in("creado_por", bloque);
+    if (error) return { ids: null, error };
+    for (const fila of data ?? []) ids.add(fila.id);
+  }
+
+  return { ids, error: null };
+}
+
+async function prestatarioEnSucursal(admin, prestatarioId, sucursalId) {
+  const { data: ficha, error: errorFicha } = await admin
+    .from("prestatarios")
+    .select("creado_por")
+    .eq("id", prestatarioId)
+    .maybeSingle();
+  if (errorFicha || !ficha) return { permitido: false, error: errorFicha };
+
+  if (ficha.creado_por) {
+    const { data: perfil, error: errorPerfil } = await admin
+      .from("perfiles")
+      .select("sucursal_id")
+      .eq("auth_user_id", ficha.creado_por)
+      .maybeSingle();
+    if (errorPerfil) return { permitido: false, error: errorPerfil };
+    if (perfil?.sucursal_id === sucursalId) return { permitido: true, error: null };
+  }
+
+  const { data: prestamo, error } = await admin
+    .from("prestamos")
+    .select("id")
+    .eq("prestatario_id", prestatarioId)
+    .eq("sucursal_id", sucursalId)
+    .limit(1)
+    .maybeSingle();
+  return { permitido: Boolean(prestamo), error };
+}
+
+async function listarPrestatarios(admin, perfil) {
+  const pagina = 500;
+  let filas = [];
+  if (perfil.rol === "ADMIN") {
+    for (let desde = 0; ; desde += pagina) {
+      const { data, error } = await admin
+        .from("prestatarios")
+        .select("id, tipo, estado, personas_naturales(dni, nombres, apellido_paterno, apellido_materno), empresas(ruc, razon_social, estado_ruc)")
+        .order("id")
+        .range(desde, desde + pagina - 1);
+      if (error) return errorResponse("No se pudo cargar la lista de prestatarios", 500, "INTERNAL_ERROR");
+      filas.push(...(data ?? []));
+      if (!data || data.length < pagina) break;
+    }
+  } else {
+    if (!perfil.sucursal_id) {
+      return errorResponse("La sesión no tiene sucursal asignada", 403, "FORBIDDEN_BRANCH");
+    }
+    const { ids, error } = await idsPrestatariosSucursal(admin, perfil.sucursal_id);
+    if (error) return errorResponse("No se pudo filtrar la lista por sucursal", 500, "INTERNAL_ERROR");
+    if (ids.size === 0) return json({ prestatarios: [] });
+
+    const idsArray = [...ids];
+    for (let desde = 0; desde < idsArray.length; desde += pagina) {
+      const bloque = idsArray.slice(desde, desde + pagina);
+      const { data, error: errorFilas } = await admin
+        .from("prestatarios")
+        .select("id, tipo, estado, personas_naturales(dni, nombres, apellido_paterno, apellido_materno), empresas(ruc, razon_social, estado_ruc)")
+        .in("id", bloque)
+        .order("id");
+      if (errorFilas) return errorResponse("No se pudo cargar la lista de prestatarios", 500, "INTERNAL_ERROR");
+      filas.push(...(data ?? []));
+    }
+  }
+  const prestatarios = filas.map((f) => ({
+    id: f.id,
+    tipo: f.tipo,
+    estadoFicha: f.estado,
+    identidad: f.tipo === "EMPRESA"
+      ? identidadEmpresa(f.empresas)
+      : (f.personas_naturales ? identidadNatural(f.personas_naturales) : null),
+  })).filter((f) => f.identidad);
+  return json({ prestatarios });
 }
 
 // Busca la ficha por DNI (persona natural) o RUC (empresa); null si no existe.
@@ -74,6 +190,9 @@ Deno.serve(async (req) => {
   const { pathname, searchParams } = new URL(req.url);
   const admin = createAdminClient();
 
+  // Directorio global para Consulta; lectura con los roles autorizados de HU-09.
+  if (pathname.endsWith("/lista")) return listarPrestatarios(admin, perfil);
+
   // ------------------------------------------------------------------ 9.1
   if (pathname.endsWith("/buscar")) {
     const { tipo, valor, error } = parsearBusqueda(searchParams);
@@ -82,6 +201,14 @@ Deno.serve(async (req) => {
     const ficha = await buscarFicha(admin, tipo, valor);
     if (!ficha) {
       return errorResponse("No existe ficha para el documento consultado", 404, "NOT_FOUND");
+    }
+    if (perfil.rol !== "ADMIN") {
+      if (!perfil.sucursal_id) {
+        return errorResponse("La sesión no tiene sucursal asignada", 403, "FORBIDDEN_BRANCH");
+      }
+      const acceso = await prestatarioEnSucursal(admin, ficha.prestatarioId, perfil.sucursal_id);
+      if (acceso.error) return errorResponse("No se pudo validar el alcance de la sucursal", 500, "INTERNAL_ERROR");
+      if (!acceso.permitido) return errorResponse("No existe ficha para el documento consultado", 404, "NOT_FOUND");
     }
     const elegibilidad = await elegibilidadDe(admin, ficha.prestatarioId);
     if (!elegibilidad) {
@@ -113,6 +240,14 @@ Deno.serve(async (req) => {
   if (!prestatario) {
     return errorResponse("Ficha no encontrada", 404, "NOT_FOUND");
   }
+  if (perfil.rol !== "ADMIN") {
+    if (!perfil.sucursal_id) {
+      return errorResponse("La sesión no tiene sucursal asignada", 403, "FORBIDDEN_BRANCH");
+    }
+    const acceso = await prestatarioEnSucursal(admin, prestatarioId, perfil.sucursal_id);
+    if (acceso.error) return errorResponse("No se pudo validar el alcance de la sucursal", 500, "INTERNAL_ERROR");
+    if (!acceso.permitido) return errorResponse("Ficha no encontrada", 404, "NOT_FOUND");
+  }
 
   let ficha;
   if (prestatario.tipo === "PERSONA_NATURAL") {
@@ -136,7 +271,7 @@ Deno.serve(async (req) => {
     return errorResponse("No se pudo consolidar el historial", 500, "INTERNAL_ERROR");
   }
 
-  const { data: prestamos, error: errorPrestamos } = await admin
+  let consultaPrestamos = admin
     .from("prestamos")
     .select(
       "id, sucursal_id, principal, plazo_meses, tea, estado, fecha_originacion, creado_en, desembolsado_en, sucursales(nombre)",
@@ -144,6 +279,8 @@ Deno.serve(async (req) => {
     .eq("prestatario_id", prestatarioId)
     .order("creado_en", { ascending: false })
     .limit(100);
+  if (perfil.rol !== "ADMIN") consultaPrestamos = consultaPrestamos.eq("sucursal_id", perfil.sucursal_id);
+  const { data: prestamos, error: errorPrestamos } = await consultaPrestamos;
   if (errorPrestamos) {
     return errorResponse("No se pudieron leer los préstamos", 500, "INTERNAL_ERROR");
   }
@@ -179,7 +316,7 @@ Deno.serve(async (req) => {
     vacio
       ? { data: [], error: null }
       : admin
-          .from("expdedientes_extrajudicial")
+          .from("expedientes_extrajudicial")
           .select(
             "id, prestamo_id, evento_mora_id, fecha_escalamiento, estado, responsable, accion, resultado, eventos_mora(inicio_mora)",
           )

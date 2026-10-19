@@ -11,21 +11,21 @@
 //   PATCH /pagos/<uuid>      -> { accion: CONFIRMAR | RECHAZAR } verificación
 //                               manual del abono (§4.3.5).
 //
-// Esta base NO imputa a cuotas: la imputación capital/interés (CA-19..CA-21,
-// RN-11/RN-22) llega con el cronograma de HU-05; `pagos.imputado_en` queda
-// NULL marcando los cobros por imputar.
+// GET devuelve cuotas y saldos calculados con imputaciones CONFIRMADAS. Las
+// transferencias PENDIENTE_VERIFICACION no reducen el saldo hasta confirmarse.
 //
 // RN-30: la sucursal se deriva de la sesión; un préstamo ajeno se rechaza.
 import { handleCors } from "../_shared/cors.js";
 import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole, assertSucursalPropia } from "../_shared/auth.js";
 import { createAdminClient } from "../_shared/supabase.js";
+import { auditar, obtenerCorrelacion } from "../_shared/auditoria.js";
 import { esUuid, extraerIdPago, parseRegistro, parseVerificacion } from "./validar.js";
 
 const ROLES = ["ADMIN", "SUPERVISOR_FINANCIERO"];
 
 const SELECT_PRESTAMO_ACTIVO =
-  "id, prestatario_id, sucursal_id, principal, plazo_meses, estado, creado_en, desembolsado_en, " +
+  "id, prestatario_id, sucursal_id, principal, capital_insoluto, plazo_meses, estado, creado_en, desembolsado_en, " +
   "prestatarios!inner(tipo, personas_naturales(dni, nombres, apellido_paterno, " +
   "apellido_materno), empresas(ruc, razon_social)), sucursales(nombre)";
 
@@ -57,6 +57,7 @@ function formatearPrestamo(p) {
   return {
     id: p.id,
     principal: p.principal,
+    capitalInsoluto: p.capital_insoluto,
     plazoMeses: p.plazo_meses,
     estado: p.estado,
     sucursal: p.sucursales?.nombre ?? null,
@@ -122,6 +123,53 @@ async function listar(admin, perfil) {
     const [listaActivos, listaPagos] = await Promise.all([activos, pagos]);
     if (listaActivos.error || listaPagos.error) throw new Error("consulta");
 
+    const prestamosActivos = listaActivos.data ?? [];
+    const idsPrestamos = prestamosActivos.map((p) => p.id);
+    const cuotasRes = idsPrestamos.length === 0
+      ? { data: [], error: null }
+      : await admin
+          .from("cuotas")
+          .select("id, prestamo_id, numero, vencimiento, total_programado, estado")
+          .in("prestamo_id", idsPrestamos)
+          .order("numero");
+    if (cuotasRes.error) throw new Error("cuotas");
+
+    const cuotas = cuotasRes.data ?? [];
+    const idsCuotas = cuotas.map((c) => c.id);
+    const totalesRes = idsCuotas.length === 0
+      ? { data: [], error: null }
+      : await admin
+          .from("cuotas_totales_imputados")
+          .select("cuota_id, total_abonado")
+          .in("cuota_id", idsCuotas);
+    if (totalesRes.error) throw new Error("saldos de cuotas");
+
+    const abonadoPorCuota = new Map(
+      (totalesRes.data ?? []).map((t) => [t.cuota_id, Number(t.total_abonado)]),
+    );
+    const cuotasPorPrestamo = new Map();
+    const hoyLima = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(new Date());
+    for (const c of cuotas) {
+      const abonado = abonadoPorCuota.get(c.id) ?? 0;
+      const saldo = Math.max(0, Math.round((Number(c.total_programado) - abonado) * 100) / 100);
+      const estado = saldo <= 0.005
+        ? "PAGADA"
+        : c.vencimiento < hoyLima
+        ? "VENCIDA"
+        : abonado > 0
+        ? "PARCIAL"
+        : "PENDIENTE";
+      if (!cuotasPorPrestamo.has(c.prestamo_id)) cuotasPorPrestamo.set(c.prestamo_id, []);
+      cuotasPorPrestamo.get(c.prestamo_id).push({
+        numero: c.numero,
+        vencimiento: c.vencimiento,
+        montoProgramado: Number(c.total_programado),
+        montoAbonado: Math.round(abonado * 100) / 100,
+        saldo,
+        estado,
+      });
+    }
+
     const fichas = await cargarFichas(
       admin,
       [...new Set((listaPagos.data ?? []).map((p) => p.prestamos?.prestatario_id).filter(Boolean))],
@@ -129,7 +177,10 @@ async function listar(admin, perfil) {
 
     const pagosFormateados = (listaPagos.data ?? []).map((p) => formatearPago(p, fichas));
     return json({
-      prestamos: (listaActivos.data ?? []).map(formatearPrestamo),
+      prestamos: prestamosActivos.map((p) => ({
+        ...formatearPrestamo(p),
+        cuotas: cuotasPorPrestamo.get(p.id) ?? [],
+      })),
       pendientes: pagosFormateados.filter((p) => p.estado === "PENDIENTE_VERIFICACION"),
       recientes: pagosFormateados.filter((p) => p.estado !== "PENDIENTE_VERIFICACION"),
     });
@@ -164,7 +215,7 @@ async function detalle(admin, perfil, pagoId) {
   return leido.response ?? json(leido.data);
 }
 
-async function registrar(admin, perfil, body) {
+async function registrar(admin, perfil, body, correlacion) {
   const { prestamoId, monto, medio, referencia, idempotencyKey, error } = parseRegistro(body);
   if (error) return errorResponse(error, 400, "VALIDATION_ERROR");
 
@@ -211,10 +262,14 @@ async function registrar(admin, perfil, body) {
 
   const leido = await leerDetalle(admin, perfil, data.pago_id);
   if (leido.response) return leido.response;
+  await auditar(admin, {
+    perfil, correlacion, accion: "CREAR", entidad: "pagos", entidadId: data.pago_id,
+    metadatos: { idempotente: data.idempotente === true, idempotency_key: idempotencyKey },
+  });
   return json({ ...leido.data, idempotente: data.idempotente === true }, data.idempotente ? 200 : 201);
 }
 
-async function verificar(admin, perfil, pagoId, body) {
+async function verificar(admin, perfil, pagoId, body, correlacion) {
   const { accion, motivo, error } = parseVerificacion(body);
   if (error) return errorResponse(error, 400, "VALIDATION_ERROR");
 
@@ -238,6 +293,10 @@ async function verificar(admin, perfil, pagoId, body) {
     });
     if (rpcError || !data) return errorResponse("No se pudo reversar el cobro", 500, "INTERNAL_ERROR");
     if (!data.ok) return errorResponse("No se puede reversar este pago", 409, data.motivo ?? "REVERSO_INVALIDO");
+    await auditar(admin, {
+      perfil, correlacion, accion: "REVERSAR", entidad: "pagos", entidadId: pagoId,
+      metadatos: { motivo, reversion_id: data.reversion_id ?? null },
+    });
     return detalle(admin, perfil, pagoId);
   }
 
@@ -264,6 +323,11 @@ async function verificar(admin, perfil, pagoId, body) {
     return errorResponse("Acción inválida", 400, "ACCION_INVALIDA");
   }
 
+  await auditar(admin, {
+    perfil, correlacion, accion: "ACTUALIZAR", entidad: "pagos", entidadId: pagoId,
+    metadatos: { operacion: accion },
+  });
+
   return detalle(admin, perfil, pagoId);
 }
 
@@ -280,6 +344,7 @@ Deno.serve(async (req) => {
 
   const errorRol = requireRole(perfil, ROLES);
   if (errorRol) return errorRol;
+  const correlacion = obtenerCorrelacion(req);
 
   const { pathname } = new URL(req.url);
   const pagoId = extraerIdPago(pathname);
@@ -304,7 +369,7 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return registrar(admin, perfil, body);
+    return registrar(admin, perfil, body, correlacion);
   }
 
   if (req.method === "PATCH") {
@@ -317,7 +382,7 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return verificar(admin, perfil, pagoId, body);
+    return verificar(admin, perfil, pagoId, body, correlacion);
   }
 
   return metodoNoPermitido();

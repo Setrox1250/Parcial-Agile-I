@@ -37,6 +37,11 @@ export function generarCronograma(principal, plazoMeses, fechaOriginacion) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaOriginacion ?? '')) {
     throw new Error('FECHA_INVALIDA');
   }
+  const [anio, mes, dia] = fechaOriginacion.split('-').map(Number);
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  if (fecha.getUTCFullYear() !== anio || fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) {
+    throw new Error('FECHA_INVALIDA');
+  }
 
   const i = tasaMensual();
   const P = Math.round(principal * 100);

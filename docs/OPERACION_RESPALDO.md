@@ -22,6 +22,13 @@ Este procedimiento cubre CA-30 para el proyecto Supabase de producción. No sust
 4. Registrar fecha, responsable, duración, resultado y diferencias encontradas.
 5. Corregir cualquier diferencia antes de aprobar una restauración de producción.
 
+## Evidencia de la prueba
+
+Por cada restauración registrar en la issue de la entrega: identificador de la
+copia, hash, rama/base de prueba, comandos ejecutados, resultado de cada suite
+SQL y la hora de eliminación del entorno temporal. No se considera verificada
+una restauración por el solo hecho de haber generado el dump.
+
 ## Periodicidad mínima
 
 - Antes de aplicar migraciones de datos o cambios de seguridad.

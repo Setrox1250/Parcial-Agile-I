@@ -31,10 +31,15 @@ Deno.test('CP-08: plazos', () => {
 });
 
 Deno.test('fechas de originación', () => {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
   assertEquals(parseFecha(undefined).fecha, hoy);
-  assertEquals(parseFecha('2026-01-31').fecha, '2026-01-31');
+  assertEquals(parseFecha(hoy).fecha, hoy, 'hoy aceptado');
+  const fechaAnterior = new Date(`${hoy}T00:00:00.000Z`);
+  fechaAnterior.setUTCDate(fechaAnterior.getUTCDate() - 1);
+  const ayer = fechaAnterior.toISOString().slice(0, 10);
+  assertEquals(parseFecha(ayer).error !== null, true, 'fecha anterior rechazada');
   assertEquals(parseFecha('2099-01-01').error !== null, true, 'futura rechazada');
+  assertEquals(parseFecha('2026-02-31').error !== null, true, 'día inexistente rechazado');
   assertEquals(parseFecha('no').error !== null, true);
 });
 

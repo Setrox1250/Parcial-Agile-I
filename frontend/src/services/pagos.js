@@ -6,6 +6,8 @@ import { llamarFuncion } from './supabase.js'
 //   listarCobranza() →
 //     { ok: true, data: { prestamos: [{ id, principal, plazoMeses, estado,
 //                                       sucursal, creadoEn, desembolsadoEn,
+//                                       cuotas: [{ numero, vencimiento, montoProgramado,
+//                                                  montoAbonado, saldo, estado }],
 //                                       prestatario: { tipo, documento, nombre } }],
 //                         pendientes: [pago], recientes: [pago] } }
 //     { ok: false, error: { code, message } }

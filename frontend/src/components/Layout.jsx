@@ -29,8 +29,8 @@ const MENU = {
 export default function Layout() {
   const { usuario, salir } = useAuth()
   const navigate = useNavigate()
-  // HU-09 9.3.1: buscador global DNI/RUC accesible desde el layout.
-  const [documento, setDocumento] = useState('')
+  // Búsqueda global: abre el directorio de Consulta con el mismo filtro.
+  const [busquedaGlobal, setBusquedaGlobal] = useState('')
 
   const cerrarSesion = async () => {
     await salir()
@@ -39,56 +39,56 @@ export default function Layout() {
 
   const buscarGlobal = (evento) => {
     evento.preventDefault()
-    const limpio = documento.replace(/\D/g, '')
-    if (limpio.length === 8) navigate(`/consulta?dni=${limpio}`)
-    else if (limpio.length === 11) navigate(`/consulta?ruc=${limpio}`)
+    const termino = busquedaGlobal.trim()
+    if (termino) navigate(`/consulta?q=${encodeURIComponent(termino)}`)
   }
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="marca">Préstamos Multisucursal</div>
-        <nav>
-          {(MENU[usuario.rol] ?? []).map((item) => (
-            <NavLink key={item.a} to={item.a} end={item.a === '/'}>
-              {item.texto}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
+        <div className="principal">
+          <div className="navegacion-superior">
+            <div className="marca">Préstamos Multisucursal</div>
+            <nav className="menu-principal" aria-label="Navegación principal">
+              {(MENU[usuario.rol] ?? []).map((item) => (
+                <NavLink key={item.a} to={item.a} end={item.a === '/'}>
+                  {item.texto}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="perfil-nav">
+              <div className="perfil-nav-avatar" aria-hidden="true">
+                {usuario.nombre_visible?.trim()?.[0]?.toUpperCase() ?? 'U'}
+              </div>
+              <div className="perfil-nav-datos">
+                <strong>{usuario.nombre_visible}</strong>
+                <span>{usuario.rol} · {usuario.sucursal_nombre ?? 'Sin sucursal (global)'}</span>
+              </div>
+              <button type="button" className="perfil-nav-salir" onClick={cerrarSesion} aria-label="Cerrar sesión" title="Cerrar sesión">
+                <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </div>
 
-      <div className="principal">
-        <header className="barra-superior">
+          <header className="barra-superior">
           <form className="buscador-global" onSubmit={buscarGlobal} noValidate>
             <input
-              aria-label="Buscar cliente por DNI o RUC"
-              inputMode="numeric"
+              type="search"
+              aria-label="Buscar clientes por nombre, DNI o RUC"
               autoComplete="off"
-              placeholder="Buscar DNI o RUC…"
-              maxLength={11}
-              value={documento}
-              onChange={(e) => setDocumento(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              placeholder="Buscar cliente por nombre, DNI o RUC…"
+              value={busquedaGlobal}
+              onChange={(e) => setBusquedaGlobal(e.target.value)}
             />
-            <button type="submit" className="btn btn-secundario" disabled={documento.length < 8}>
+            <button type="submit" className="btn btn-secundario" disabled={!busquedaGlobal.trim()}>
               Buscar
             </button>
           </form>
-          <div className="sesion">
-            <strong>{usuario.nombre_visible}</strong>
-            <span className="etiqueta">{usuario.rol}</span>
-            <span className="sucursal">
-              {usuario.sucursal_nombre ?? 'Sin sucursal (global)'}
-            </span>
-          </div>
-          <button type="button" className="btn btn-secundario" onClick={cerrarSesion}>
-            Cerrar sesión
-          </button>
-        </header>
+          </header>
 
-        <main className="contenido">
-          <Outlet />
-        </main>
-      </div>
+          <main className="contenido">
+            <Outlet />
+          </main>
+        </div>
     </div>
   )
 }

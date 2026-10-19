@@ -15,6 +15,7 @@ import { handleCors } from "../_shared/cors.js";
 import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole, assertSucursalPropia } from "../_shared/auth.js";
 import { createAdminClient } from "../_shared/supabase.js";
+import { auditar, obtenerCorrelacion } from "../_shared/auditoria.js";
 import { esUuid, extraerIdPrestamo, parseConfirmacion } from "./validar.js";
 
 const ROLES = ["ADMIN", "SUPERVISOR_FINANCIERO"];
@@ -146,7 +147,7 @@ async function detalle(admin, perfil, prestamoId) {
 }
 
 // CA-16: la entrega se confirma con método/referencia y el actor de la sesión.
-async function confirmar(admin, perfil, prestamoId, body) {
+async function confirmar(admin, perfil, prestamoId, body, correlacion) {
   const cargado = await cargarPrestamo(admin, perfil, prestamoId);
   if (cargado.error) return cargado.error;
 
@@ -176,6 +177,11 @@ async function confirmar(admin, perfil, prestamoId, body) {
     );
   }
 
+  await auditar(admin, {
+    perfil, correlacion, accion: "ACTUALIZAR", entidad: "desembolsos", entidadId: data.desembolso_id ?? null,
+    metadatos: { prestamo_id: prestamoId, idempotente: data.idempotente === true },
+  });
+
   try {
     const desembolso = await leerDesembolso(admin, prestamoId);
     const { data: actualizado, error: errorLectura } = await admin
@@ -203,7 +209,7 @@ async function confirmar(admin, perfil, prestamoId, body) {
 }
 
 // CA-17: anulación antes de la entrega; libera la reserva de cupo (HU-04).
-async function anular(admin, perfil, prestamoId) {
+async function anular(admin, perfil, prestamoId, correlacion) {
   const cargado = await cargarPrestamo(admin, perfil, prestamoId);
   if (cargado.error) return cargado.error;
 
@@ -223,6 +229,11 @@ async function anular(admin, perfil, prestamoId) {
       { estado: data.estado ?? null },
     );
   }
+
+  await auditar(admin, {
+    perfil, correlacion, accion: "ACTUALIZAR", entidad: "prestamos", entidadId: prestamoId,
+    metadatos: { operacion: "ANULAR_DESEMBOLSO", cupo_liberado: cargado.prestamo.principal },
+  });
 
   return json({
     prestamoId,
@@ -245,6 +256,7 @@ Deno.serve(async (req) => {
 
   const errorRol = requireRole(perfil, ROLES);
   if (errorRol) return errorRol;
+  const correlacion = obtenerCorrelacion(req);
 
   const { pathname } = new URL(req.url);
   const prestamoId = extraerIdPrestamo(pathname);
@@ -270,11 +282,11 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return confirmar(admin, perfil, prestamoId, body);
+    return confirmar(admin, perfil, prestamoId, body, correlacion);
   }
 
   if (req.method === "DELETE") {
-    return anular(admin, perfil, prestamoId);
+    return anular(admin, perfil, prestamoId, correlacion);
   }
 
   return metodoNoPermitido();
