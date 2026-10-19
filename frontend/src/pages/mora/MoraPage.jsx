@@ -64,19 +64,22 @@ export default function MoraPage() {
   }
 
   return (
-    <section>
-      <h1>Mora y cobranza extrajudicial</h1>
-      <p>
-        Una cuota impaga entra en mora al día siguiente del vencimiento. La mora bloquea nuevas
-        originaciones en todas las sucursales; no genera penalidades ni intereses adicionales.
-      </p>
+    <section className="modulo-operativo">
+      <header className="modulo-cabecera">
+        <div>
+          <p className="modulo-eyebrow">SEGUIMIENTO DE CARTERA</p>
+          <h1>Mora y cobranza extrajudicial</h1>
+          <p>Identifica cuotas vencidas, protege nuevas originaciones y da seguimiento a los casos escalados.</p>
+        </div>
+        <span className="modulo-contador modulo-contador--alerta">{moras.length} en mora</span>
+      </header>
 
       {error && <div className="aviso aviso-error">{error}</div>}
       {mensaje && <div className="aviso aviso-ok">{mensaje}</div>}
 
       {usuario?.rol === 'ADMIN' && (
-        <div className="tarjeta">
-          <h2>Proceso diario</h2>
+        <div className="tarjeta proceso-sistema">
+          <div><p className="tarjeta-eyebrow">CONTROL DEL SISTEMA</p><h2>Proceso diario</h2></div>
           <p className="nota">
             Se ejecuta automáticamente cada día a las 00:05 (America/Lima). Úselo solo para
             reprocesar después de una incidencia.
@@ -87,14 +90,14 @@ export default function MoraPage() {
         </div>
       )}
 
-      <div className="tarjeta">
-        <h2>Moras activas</h2>
+      <div className="tarjeta cola-operativa">
+        <div className="cola-operativa-cabecera"><div><p className="tarjeta-eyebrow">CASOS ACTIVOS</p><h2>Moras activas</h2></div><span>Bloquean nuevas originaciones</span></div>
         {cargando ? (
           <p className="cargando">Cargando…</p>
         ) : moras.length === 0 ? (
           <p>No hay cuotas vencidas con saldo en su ámbito.</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-envoltura"><table className="tabla">
             <thead>
               <tr>
                 <th>Prestatario</th>
@@ -115,12 +118,12 @@ export default function MoraPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
-      <div className="tarjeta">
-        <h2>Expedientes extrajudiciales</h2>
+      <div className="tarjeta cola-operativa">
+        <div className="cola-operativa-cabecera"><div><p className="tarjeta-eyebrow">ESCALAMIENTO</p><h2>Expedientes extrajudiciales</h2></div><span>{expedientes.length} expedientes</span></div>
         <p className="nota">
           El expediente conserva la traza de la racha; no elimina deuda ni ejecuta acciones de
           cobranza fuera del sistema.
@@ -130,7 +133,7 @@ export default function MoraPage() {
         ) : expedientes.length === 0 ? (
           <p>Sin expedientes extrajudiciales registrados.</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-envoltura"><table className="tabla">
             <thead>
               <tr>
                 <th>Prestatario</th>
@@ -151,7 +154,7 @@ export default function MoraPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </section>

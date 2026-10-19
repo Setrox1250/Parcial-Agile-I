@@ -260,13 +260,20 @@ export default function CobranzasPage() {
   }
 
   return (
-    <section>
-      <h1>Cobranza</h1>
+    <section className="modulo-operativo">
+      <header className="modulo-cabecera">
+        <div>
+          <p className="modulo-eyebrow">OPERACIÓN DE CARTERA</p>
+          <h1>Cobranza</h1>
+          <p>Registra pagos, valida abonos por transferencia y conserva una traza por préstamo.</p>
+        </div>
+        <span className="modulo-contador">{pendientes.length} por verificar</span>
+      </header>
 
       {error && !modalCobro && <div className="aviso aviso-error">{error}</div>}
       {mensaje && !modalCobro && <div className="aviso aviso-ok">{mensaje}</div>}
 
-      <div className="tarjeta cobranza-abrir">
+      <div className="tarjeta cobranza-abrir accion-destacada">
         <div>
         <h2>Registrar cobro</h2>
         <p className="cargando">
@@ -422,14 +429,14 @@ export default function CobranzasPage() {
         </div>
       )}
 
-      <div className="tarjeta">
-        <h2>Transferencias por verificar</h2>
+      <div className="tarjeta cola-operativa">
+        <div className="cola-operativa-cabecera"><div><p className="tarjeta-eyebrow">VALIDACIÓN</p><h2>Transferencias por verificar</h2></div><span>El saldo cambia solo al confirmar</span></div>
         {cargando ? (
           <p className="cargando">Cargando…</p>
         ) : pendientes.length === 0 ? (
           <p className="cargando">Sin transferencias pendientes de verificación.</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-envoltura"><table className="tabla">
             <thead>
               <tr>
                 <th>Registrado</th>
@@ -465,18 +472,18 @@ export default function CobranzasPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
-      <div className="tarjeta">
-        <h2>Historial de cobros</h2>
+      <div className="tarjeta cola-operativa">
+        <div className="cola-operativa-cabecera"><div><p className="tarjeta-eyebrow">MOVIMIENTOS RECIENTES</p><h2>Historial de cobros</h2></div><span>{recientes.length} registros</span></div>
         {cargando ? (
           <p className="cargando">Cargando…</p>
         ) : recientes.length === 0 ? (
           <p className="cargando">Todavía no hay cobros registrados.</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-envoltura"><table className="tabla">
             <thead>
               <tr>
                 <th>Registrado</th>
@@ -506,7 +513,7 @@ export default function CobranzasPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
         <p className="cargando">
           Los cobros confirmados se distribuyen entre capital e intereses en orden de vencimiento.

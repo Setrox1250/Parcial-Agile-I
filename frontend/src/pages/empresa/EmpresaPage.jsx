@@ -6,6 +6,7 @@ import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilid
 import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import { consultarRuc } from '../../services/ruc.js'
+import FlujoCredito from '../../components/operacion/FlujoCredito.jsx'
 import '../identidad/identidad.css'
 
 // HU-03 — Identidad de empresa peruana.
@@ -57,13 +58,19 @@ export default function EmpresaPage() {
   return (
     <section className="pagina">
       <header className="pagina-cabecera">
-        <h1>Identidad de empresa</h1>
+        <p className="modulo-eyebrow">NUEVA OPERACIÓN</p>
+        <h1>Originar crédito para empresa</h1>
         <p>
-          Ingrese el RUC de 11 dígitos: la razón social, el estado y la condición se
-          recuperan de la fuente de consulta, sin digitación manual. Para originar se
-          requiere un representante con DNI verificado y facultades acreditadas.
+          Verifica el RUC y la representación legal antes de evaluar el cupo de la empresa.
         </p>
       </header>
+
+      <FlujoCredito
+        tipo="EMPRESA"
+        verificado={Boolean(resultado?.ok)}
+        representacionAcreditada={resultado?.data?.representanteEstado === 'ACREDITADO'}
+        originando={originando}
+      />
 
       <RucForm onConsultar={manejarConsulta} consultando={consultando} />
 
