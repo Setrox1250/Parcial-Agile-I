@@ -33,10 +33,17 @@ const REPRESENTANTE = {
 }
 
 // Resultado de la consulta de RUC: ficha de empresa (solo lectura) o error tipificado.
-export default function ResultadoEmpresa({ resultado, onNuevaConsulta }) {
+export default function ResultadoEmpresa({ resultado, representanteConsultado, onNuevaConsulta }) {
   if (resultado.ok) {
     const ficha = resultado.data
-    const representante = REPRESENTANTE[ficha.representanteEstado] ?? null
+    const representante = ficha.representanteEstado === 'ACREDITADO'
+      ? REPRESENTANTE.ACREDITADO
+      : representanteConsultado
+        ? {
+            texto: 'Representante legal encontrado; pendiente de validar y acreditar (CA-08)',
+            badge: 'nuevo',
+          }
+        : REPRESENTANTE[ficha.representanteEstado] ?? null
     return (
       <Tarjeta
         titulo="Empresa verificada"

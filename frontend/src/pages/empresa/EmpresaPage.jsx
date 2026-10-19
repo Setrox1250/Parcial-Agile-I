@@ -24,14 +24,14 @@ export default function EmpresaPage() {
   const [representanteConsultado, setRepresentanteConsultado] = useState(null)
   const [errorRepresentante, setErrorRepresentante] = useState('')
 
-  async function manejarConsulta(ruc, representanteDni) {
+  async function manejarConsulta(ruc) {
     setConsultando(true)
     setResultado(null)
     setOriginando(false)
     setRepresentanteConsultado(null)
     setErrorRepresentante('')
     try {
-      const respuesta = await consultarRuc(ruc, representanteDni)
+      const respuesta = await consultarRuc(ruc)
       setResultado(respuesta)
     } catch {
       setResultado({
@@ -77,6 +77,17 @@ export default function EmpresaPage() {
     setRevisionElegibilidad((revision) => revision + 1)
   }
 
+  const representanteParaAcreditar = representanteConsultado ?? (
+    resultado?.ok && (resultado.data.representanteDniSugerido || resultado.data.representanteDni)
+      ? {
+          dni: resultado.data.representanteDniSugerido ?? resultado.data.representanteDni,
+          nombres: null,
+          cargo: resultado.data.representanteRol,
+          proveedor: 'APISPERU',
+        }
+      : null
+  )
+
   return (
     <section className="pagina">
       <header className="pagina-cabecera">
@@ -97,7 +108,11 @@ export default function EmpresaPage() {
       <RucForm onConsultar={manejarConsulta} consultando={consultando} />
 
       {resultado && (
-        <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => setResultado(null)} />
+        <ResultadoEmpresa
+          resultado={resultado}
+          representanteConsultado={representanteConsultado}
+          onNuevaConsulta={() => setResultado(null)}
+        />
       )}
 
       {resultado?.ok && resultado.data.numeroRuc.startsWith('20') && (
@@ -133,9 +148,10 @@ export default function EmpresaPage() {
         resultado.data?.prestatarioId &&
         resultado.data.representanteEstado !== 'ACREDITADO' && (
         <AcreditarRepresentanteForm
-          key={resultado.data.prestatarioId}
+          key={`${resultado.data.prestatarioId}-${representanteParaAcreditar?.dni ?? 'sin-dni'}`}
           empresaId={resultado.data.prestatarioId}
-          dniSugerido={representanteConsultado?.dni ?? resultado.data.representanteDniSugerido ?? resultado.data.representanteDni}
+          ruc={resultado.data.numeroRuc}
+          representante={representanteParaAcreditar}
           onAcreditado={manejarRepresentanteAcreditado}
         />
       )}

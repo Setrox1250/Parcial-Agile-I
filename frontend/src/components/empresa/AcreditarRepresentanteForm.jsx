@@ -1,105 +1,95 @@
-import { useEffect, useState } from 'react'
-import CampoTexto from '../ui/CampoTexto.jsx'
+import { useState } from 'react'
 import Boton from '../ui/Boton.jsx'
 import Alerta from '../ui/Alerta.jsx'
-import { normalizarDni, esDniCompleto } from '../../utils/dni.js'
+import { consultarDni } from '../../services/dni.js'
 import { acreditarRepresentante } from '../../services/representantes.js'
 
-// CA-08: la consulta de RUC no certifica poderes. Un usuario operativo debe
-// asociar a una persona ya validada por DNI y registrar la evidencia revisada.
-export default function AcreditarRepresentanteForm({ empresaId, dniSugerido = '', onAcreditado }) {
-  const [dni, setDni] = useState(dniSugerido)
-  const [fuente, setFuente] = useState('')
-  const [evidencia, setEvidencia] = useState('')
+// Valida el DNI sugerido y registra la evidencia del proceso sin pedir que
+// el usuario vuelva a escribir datos que ya llegaron de la consulta del RUC.
+export default function AcreditarRepresentanteForm({ empresaId, ruc, representante, onAcreditado }) {
+  const [confirmoFacultades, setConfirmoFacultades] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [resultado, setResultado] = useState(null)
 
-  useEffect(() => {
-    if (dniSugerido) setDni(normalizarDni(dniSugerido))
-  }, [dniSugerido])
-
-  async function enviar(evento) {
+  async function acreditar(evento) {
     evento.preventDefault()
     setResultado(null)
-    if (!esDniCompleto(dni)) {
-      setResultado({ ok: false, error: { message: 'El DNI debe tener 8 dígitos.' } })
-      return
-    }
-    if (fuente.trim().length < 3 || evidencia.trim().length < 5) {
+    if (!confirmoFacultades) {
       setResultado({
         ok: false,
-        error: { message: 'Indique la fuente y una referencia de evidencia de facultades.' },
+        error: { message: 'Confirme que revisó las facultades del representante en una fuente autorizada.' },
       })
       return
     }
 
     setCargando(true)
-    const respuesta = await acreditarRepresentante({
+    const validacion = await consultarDni(representante.dni)
+    if (!validacion.ok) {
+      setCargando(false)
+      setResultado({ ok: false, error: validacion.error })
+      return
+    }
+
+    const fechaRevision = new Date().toISOString()
+    const fuente = `${representante.proveedor || 'Consulta de identidad'} - representante legal`
+    const evidenciaReferencia = [
+      `RUC ${ruc}`,
+      `DNI ${representante.dni} validado mediante HU-02`,
+      representante.cargo ? `cargo ${representante.cargo}` : null,
+      representante.fechaNombramiento ? `nombramiento ${representante.fechaNombramiento}` : null,
+      `facultades revisadas por el operador; fecha ${fechaRevision}`,
+    ].filter(Boolean).join('; ')
+
+    const acreditacion = await acreditarRepresentante({
       empresaId,
-      representanteDni: dni,
+      representanteDni: representante.dni,
       fuente,
-      evidenciaReferencia: evidencia,
+      evidenciaReferencia,
     })
     setCargando(false)
-    setResultado(respuesta)
-    if (respuesta.ok) onAcreditado?.(respuesta.data)
+    setResultado(acreditacion)
+    if (acreditacion.ok) {
+      onAcreditado?.({ ...acreditacion.data, nombreValidado: validacion.data.nombreCompleto })
+    }
   }
 
+  if (!representante?.dni) return null
+
   return (
-    <form className="dni-form" onSubmit={enviar} noValidate>
+    <section className="dni-form">
       <h2>Acreditar representante</h2>
       <p className="nota">
-        Antes de confirmar, valide el DNI en el flujo de identidad y revise la evidencia de
-        facultades. La referencia se registra para auditoría; no pegue el documento completo.
+        {representante.nombres || 'Representante legal'} · DNI {representante.dni}
+        {representante.cargo ? ` · ${representante.cargo}` : ''}
+      </p>
+      <p className="nota">
+        Al confirmar, el sistema valida automáticamente el DNI con HU-02 y registra la consulta.
+        Revise las facultades en una fuente autorizada antes de continuar.
       </p>
 
-      <CampoTexto
-        id="dni-representante-acreditado"
-        etiqueta="DNI del representante"
-        inputMode="numeric"
-        autoComplete="off"
-        maxLength={8}
-        placeholder="00000000"
-        value={dni}
-        onChange={(e) => setDni(normalizarDni(e.target.value))}
-        disabled={cargando}
-        hint="Debe corresponder a una identidad validada previamente (HU-02)."
-      />
-      <CampoTexto
-        id="fuente-facultades"
-        etiqueta="Fuente de facultades"
-        autoComplete="off"
-        maxLength={100}
-        placeholder="Partida SUNARP, acta u otra fuente aprobada"
-        value={fuente}
-        onChange={(e) => setFuente(e.target.value)}
-        disabled={cargando}
-      />
-      <CampoTexto
-        id="referencia-facultades"
-        etiqueta="Referencia de evidencia"
-        autoComplete="off"
-        maxLength={500}
-        placeholder="Ej.: Partida 12345678, asiento B00001"
-        value={evidencia}
-        onChange={(e) => setEvidencia(e.target.value)}
-        disabled={cargando}
-        hint="Registre una referencia verificable, no datos personales innecesarios."
-      />
+      <label className="nota" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+        <input
+          type="checkbox"
+          checked={confirmoFacultades}
+          onChange={(evento) => setConfirmoFacultades(evento.target.checked)}
+          disabled={cargando}
+        />
+        Confirmo que revisé las facultades de representación para esta operación.
+      </label>
 
       {resultado && (
         <Alerta tipo={resultado.ok ? 'ok' : 'error'}>
           {resultado.ok
             ? resultado.data.idempotente
               ? 'La representación ya estaba acreditada.'
-              : 'Representación acreditada. La empresa ya puede evaluarse para originación.'
+              : `DNI validado${resultado.data.nombreValidado ? `: ${resultado.data.nombreValidado}` : ''}. Representación acreditada.`
             : resultado.error.message || 'No se pudo acreditar la representación.'}
         </Alerta>
       )}
 
-      <Boton type="submit" cargando={cargando}>
-        {cargando ? 'Acreditando…' : 'Acreditar facultades'}
+      <Boton type="button" cargando={cargando} disabled={!confirmoFacultades} onClick={acreditar}>
+        {cargando ? 'Validando y acreditando…' : 'Validar DNI y acreditar representante'}
       </Boton>
-    </form>
+    </section>
   )
 }
