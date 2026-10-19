@@ -9,6 +9,7 @@ import EmpresaPage from './pages/empresa/EmpresaPage'
 import ConsultaPage from './pages/consulta/ConsultaPage'
 import DesembolsosPage from './pages/desembolsos/DesembolsosPage'
 import CobranzasPage from './pages/cobranzas/CobranzasPage'
+import MoraPage from './pages/mora/MoraPage'
 import './App.css'
 
 function App() {
@@ -35,6 +36,14 @@ function App() {
             element={
               <RequireRole roles={['ADMIN', 'SUPERVISOR_FINANCIERO']}>
                 <CobranzasPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/mora"
+            element={
+              <RequireRole roles={['ADMIN', 'SUPERVISOR_FINANCIERO']}>
+                <MoraPage />
               </RequireRole>
             }
           />

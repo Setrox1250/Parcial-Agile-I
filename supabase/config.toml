@@ -46,6 +46,10 @@ entrypoint = './functions/desembolso/index.js'
 verify_jwt = true
 entrypoint = './functions/pagos/index.js'
 
+[functions.mora]
+verify_jwt = true
+entrypoint = './functions/mora/index.js'
+
 [studio]
 port = 54329
 

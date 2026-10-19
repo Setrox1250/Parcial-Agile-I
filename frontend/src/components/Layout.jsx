@@ -11,6 +11,7 @@ const MENU = {
     { a: '/consulta', texto: 'Consulta' },
     { a: '/desembolsos', texto: 'Desembolsos' },
     { a: '/cobranzas', texto: 'Cobranza' },
+    { a: '/mora', texto: 'Mora' },
     { a: '/usuarios', texto: 'Usuarios' },
   ],
   SUPERVISOR_FINANCIERO: [
@@ -20,6 +21,7 @@ const MENU = {
     { a: '/consulta', texto: 'Consulta' },
     { a: '/desembolsos', texto: 'Desembolsos' },
     { a: '/cobranzas', texto: 'Cobranza' },
+    { a: '/mora', texto: 'Mora' },
   ],
 }
 
