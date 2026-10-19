@@ -26,7 +26,7 @@ BEGIN
 
     BEGIN
         EXECUTE 'SET LOCAL ROLE anon';
-        INSERT INTO public.auditoria (accion, entidad) VALUES (''SISTEMA'', ''ATAQUE'');
+        INSERT INTO public.auditoria (accion, entidad) VALUES ('SISTEMA', 'ATAQUE');
     EXCEPTION WHEN OTHERS THEN
         v_bloqueo_anon := true;
     END;
