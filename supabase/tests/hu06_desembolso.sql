@@ -13,15 +13,15 @@ DELETE FROM public.desembolsos
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
     JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
-    WHERE pn.dni IN ('12121212','13131313','14141414','15151515','16161616','17171717')
+    WHERE pn.dni IN ('51515151','52525252','53535353','54545454','56565656','57575757')
 );
 DELETE FROM public.prestamos
 WHERE prestatario_id IN (
     SELECT pn.prestatario_id FROM public.personas_naturales pn
-    WHERE pn.dni IN ('12121212','13131313','14141414','15151515','16161616','17171717')
+    WHERE pn.dni IN ('51515151','52525252','53535353','54545454','56565656','57575757')
 );
 DELETE FROM public.personas_naturales
-WHERE dni IN ('12121212','13131313','14141414','15151515','16161616','17171717');
+WHERE dni IN ('51515151','52525252','53535353','54545454','56565656','57575757');
 DELETE FROM public.prestatarios
 WHERE id NOT IN (SELECT prestatario_id FROM public.personas_naturales)
   AND id NOT IN (SELECT prestatario_id FROM public.empresas)
@@ -80,7 +80,7 @@ DO $$
 DECLARE v_prestamo uuid; v JSONB; v_estado text; v_insoluto numeric;
         v_reserva numeric; v_desembolsos int; v_metodo text; v_ref text;
 BEGIN
-    v_prestamo := pg_temp.reservar('12121212', 1500, 'TRU', 'hu06-s1');
+    v_prestamo := pg_temp.reservar('51515151', 1500, 'TRU', 'hu06-s1');
 
     v := public.confirmar_desembolso(v_prestamo, 'EFECTIVO', NULL, NULL, 'hu06-s1-clave');
     PERFORM pg_temp.assert((v->>'ok')::boolean, 'S1: confirmación en efectivo -> ok');
@@ -117,7 +117,7 @@ END $$;
 DO $$
 DECLARE v_prestamo uuid; v JSONB; v_n int;
 BEGIN
-    v_prestamo := pg_temp.reservar('13131313', 800, 'CHI', 'hu06-s2');
+    v_prestamo := pg_temp.reservar('52525252', 800, 'CHI', 'hu06-s2');
     v := public.confirmar_desembolso(v_prestamo, 'EFECTIVO', NULL, NULL, 'hu06-s2-a');
     PERFORM pg_temp.assert((v->>'ok')::boolean, 'S2: primera confirmación ok');
 
@@ -136,7 +136,7 @@ END $$;
 DO $$
 DECLARE v_prestamo uuid; v JSONB; v_n int;
 BEGIN
-    v_prestamo := pg_temp.reservar('14141414', 500, 'PIU', 'hu06-s3');
+    v_prestamo := pg_temp.reservar('53535353', 500, 'PIU', 'hu06-s3');
     v := public.confirmar_desembolso(v_prestamo, 'TRANSFERENCIA', 'CCI-0001', NULL, 'hu06-s3-idem');
     PERFORM pg_temp.assert((v->>'ok')::boolean, 'S3: transferencia con referencia -> ok');
 
@@ -154,7 +154,7 @@ END $$;
 DO $$
 DECLARE v_prestamo uuid; v JSONB;
 BEGIN
-    v_prestamo := pg_temp.reservar('15151515', 300, 'TUM', 'hu06-s4');
+    v_prestamo := pg_temp.reservar('54545454', 300, 'TUM', 'hu06-s4');
 
     v := public.confirmar_desembolso(v_prestamo, 'TRANSFERENCIA', NULL, NULL, NULL);
     PERFORM pg_temp.assert((v->>'ok')::boolean = false AND v->>'motivo' = 'REFERENCIA_REQUERIDA',
@@ -177,7 +177,7 @@ END $$;
 DO $$
 DECLARE v_prestamo uuid; v JSONB; v_estado text; v_expo numeric; v_n int;
 BEGIN
-    v_prestamo := pg_temp.reservar('16161616', 700, 'TRU', 'hu06-s5');
+    v_prestamo := pg_temp.reservar('56565656', 700, 'TRU', 'hu06-s5');
 
     v := public.liberar_reserva(v_prestamo);
     PERFORM pg_temp.assert((v->>'ok')::boolean, 'S5: anulación antes del desembolso -> ok');
@@ -207,7 +207,7 @@ BEGIN
     PERFORM pg_temp.assert((v->>'ok')::boolean = false AND v->>'motivo' = 'PRESTAMO_INEXISTENTE',
         'S6: préstamo inexistente -> PRESTAMO_INEXISTENTE');
 
-    v_prestamo := pg_temp.reservar('17171717', 250, 'CHI', 'hu06-s6');
+    v_prestamo := pg_temp.reservar('57575757', 250, 'CHI', 'hu06-s6');
 
     BEGIN
         INSERT INTO public.desembolsos (prestamo_id, importe, metodo, referencia, sucursal_id)

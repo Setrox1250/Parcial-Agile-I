@@ -19,6 +19,13 @@ WHERE prestamo_id IN (
     JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
     WHERE pn.dni IN ('19191919','18181818','17171717','16161616','15151515','14141414')
 );
+-- HU-06: la evidencia de desembolso también referencia al préstamo.
+DELETE FROM public.desembolsos
+WHERE prestamo_id IN (
+    SELECT p.id FROM public.prestamos p
+    JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
+    WHERE pn.dni IN ('19191919','18181818','17171717','16161616','15151515','14141414')
+);
 DELETE FROM public.expdedientes_extrajudicial
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
