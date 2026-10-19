@@ -5,7 +5,7 @@
 //                                   sucursal de la sesión (ADMIN: todos) y
 //                                   evidencia reciente (CA-16).
 //   GET    /desembolso/<uuid>    -> detalle de un préstamo + su desembolso.
-//   PUT    /desembolso/<uuid>    -> corrige términos mientras está pendiente.
+//   PATCH  /desembolso/<uuid>    -> corrige términos mientras está pendiente.
 //   POST   /desembolso/<uuid>    -> confirma la entrega de dinero (CA-16).
 //   DELETE /desembolso/<uuid>    -> anula antes del desembolso y libera cupo
 //                                   (CA-17, función liberar_reserva HU-04).
@@ -52,7 +52,9 @@ function formatearPrestamo(p) {
     plazoMeses: p.plazo_meses,
     tea: p.tea,
     fechaOriginacion: p.fecha_originacion,
-    interesTotal: (p.cuotas ?? []).reduce((suma, cuota) => suma + Number(cuota.interes_programado ?? 0), 0),
+    interesTotal: Array.isArray(p.cuotas) && p.cuotas.length > 0
+      ? p.cuotas.reduce((suma, cuota) => suma + Number(cuota.interes_programado ?? 0), 0)
+      : null,
     sucursal: p.sucursales?.nombre ?? null,
     creadoEn: p.creado_en,
     desembolsadoEn: p.desembolsado_en,
@@ -281,7 +283,7 @@ async function anular(admin, perfil, prestamoId, correlacion) {
 }
 
 function metodoNoPermitido() {
-  return errorResponse("Use GET, PUT, POST o DELETE", 405, "METHOD_NOT_ALLOWED");
+  return errorResponse("Use GET, PATCH, POST o DELETE", 405, "METHOD_NOT_ALLOWED");
 }
 
 Deno.serve(async (req) => {
@@ -312,7 +314,7 @@ Deno.serve(async (req) => {
 
   if (!prestamoId) return metodoNoPermitido();
 
-  if (req.method === "PUT") {
+  if (req.method === "PATCH") {
     let body;
     try { body = await req.json(); } catch { return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON"); }
     return editar(admin, perfil, prestamoId, body, correlacion);

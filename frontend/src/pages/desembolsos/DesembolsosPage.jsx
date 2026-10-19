@@ -78,7 +78,10 @@ export default function DesembolsosPage() {
       const resultado = await editarPrestamoPendiente(prestamo.id, { monto, plazoMeses })
       if (!resultado.ok) { setError(resultado.error.message); return }
       setEditandoTerminos(null)
-      setMensaje(`Préstamo actualizado. Interés total: S/ ${soles(resultado.data.prestamo.interesTotal ?? 0)}.`)
+      const interesTotal = resultado.data.prestamo.interesTotal
+      setMensaje(interesTotal == null
+        ? 'Préstamo actualizado. Recarga la lista para consultar el interés total del cronograma.'
+        : `Préstamo actualizado. Interés total: S/ ${soles(interesTotal)}.`)
       await cargar()
     } finally {
       setPrestamoEnCurso(null)
@@ -196,7 +199,7 @@ export default function DesembolsosPage() {
                     </td>
                     <td>S/ {soles(p.principal)}</td>
                     <td>{p.plazoMeses} m</td>
-                    <td>S/ {soles(p.interesTotal ?? 0)} <small>(TEA 30 %)</small></td>
+                    <td>{p.interesTotal == null ? 'Cronograma no disponible' : <>S/ {soles(p.interesTotal)} <small>(TEA 30 %)</small></>}</td>
                     <td>{p.sucursal ?? '—'}</td>
                     <td>{fecha(p.creadoEn)}</td>
                     <td>

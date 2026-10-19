@@ -69,7 +69,7 @@ export async function editarPrestamoPendiente(prestamoId, { monto, plazoMeses })
   if (!prestamoId) return fallo('PRESTAMO_REQUERIDO', 'Falta el identificador del préstamo.')
   try {
     const cuerpo = await llamarFuncion('desembolso', {
-      method: 'PUT',
+      method: 'PATCH',
       path: `/${prestamoId}`,
       body: { monto, plazoMeses },
     })
