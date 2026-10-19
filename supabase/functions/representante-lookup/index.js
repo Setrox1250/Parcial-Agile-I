@@ -3,7 +3,7 @@ import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole } from "../_shared/auth.js";
 import { esRucValido } from "../_shared/ruc.js";
 
-const JSONPE_ENDPOINT = "https://api.json.pe/api/representante-legal";
+const JSONPE_ENDPOINT = "https://api.json.pe/api/ruc/representantes";
 const TIMEOUT_MS = 8000;
 const ROLES_PERMITIDOS = ["ADMIN", "SUPERVISOR_FINANCIERO"];
 
@@ -25,7 +25,9 @@ function normalizarRepresentante(respuesta) {
     : datos?.representante_legal ?? datos?.representanteLegal ?? datos?.representante ?? datos;
   if (!representante || typeof representante !== "object") return null;
 
-  const dni = obtener(representante, ["dni", "documento", "numero_documento", "numeroDocumento"]);
+  const dni = obtener(representante, [
+    "dni", "documento", "numero_documento", "numero_de_documento", "numeroDocumento",
+  ]);
   const nombres = obtener(representante, [
     "nombre_completo", "nombreCompleto", "nombres_completos", "nombresCompletos", "nombres_apellidos", "nombres", "nombre",
   ]);
@@ -36,7 +38,7 @@ function normalizarRepresentante(respuesta) {
     nombres,
     cargo: obtener(representante, ["cargo", "rol", "puesto"]),
     fechaNombramiento: obtener(representante, [
-      "fecha_nombramiento", "fechaNombramiento", "fecha_designacion", "fechaDesignacion",
+      "fecha_nombramiento", "fechaNombramiento", "fecha_designacion", "fechaDesignacion", "fecha_desde",
     ]),
     estadoCargo: obtener(representante, ["estado_cargo", "estadoCargo", "estado"]),
   };
