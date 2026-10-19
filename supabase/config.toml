@@ -18,6 +18,10 @@ entrypoint = './functions/dni-lookup/index.js'
 verify_jwt = true
 entrypoint = './functions/elegibilidad/index.js'
 
+[functions.prestamos]
+verify_jwt = true
+entrypoint = './functions/prestamos/index.js'
+
 [functions.quien-soy]
 verify_jwt = true
 entrypoint = './functions/quien-soy/index.js'

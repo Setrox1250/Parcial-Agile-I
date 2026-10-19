@@ -1,0 +1,185 @@
+/* HU-05: formulario de préstamo y cronograma */
+
+.prestamo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.prestamo-form select {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  color: var(--text-h, #0f172a);
+}
+
+.prestamo-form select:focus-visible {
+  outline: 2px solid var(--accent, #2563eb);
+  outline-offset: 1px;
+}
+
+.prestamo-tea {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border, #e2e8f0);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.prestamo-tea span {
+  color: #64748b;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.prestamo-acciones,
+.cronograma-acciones {
+  display: flex;
+  gap: 10px;
+}
+
+/* Cronograma (5.5) */
+
+.cronograma {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cronograma-totales {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.cronograma-total-dato {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.cronograma-total-dato span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.cronograma-total-dato strong {
+  font-size: 1.05rem;
+}
+
+.cronograma-total-dato--principal {
+  border-color: var(--accent-border, #93c5fd);
+  background: var(--accent-bg, #eff6ff);
+}
+
+.cronograma-grafico {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cronograma-grafico-barra {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.cronograma-grafico-capital {
+  background: #2563eb;
+}
+
+.cronograma-grafico-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.85rem;
+}
+
+.cronograma-leyenda-cap::before,
+.cronograma-leyenda-int::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
+
+.cronograma-leyenda-cap::before {
+  background: #2563eb;
+}
+
+.cronograma-leyenda-int::before {
+  background: #f59e0b;
+}
+
+.cronograma-tabla-envoltura {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.cronograma-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.cronograma-tabla th,
+.cronograma-tabla td {
+  padding: 8px 12px;
+  text-align: right;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+
+.cronograma-tabla th:first-child,
+.cronograma-tabla td:first-child,
+.cronograma-tabla th:nth-child(2),
+.cronograma-tabla td:nth-child(2) {
+  text-align: left;
+}
+
+.cronograma-tabla thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg, #fff);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.cronograma-col-grafico {
+  width: 90px;
+}
+
+.cronograma-mini-barra {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.cronograma-mini-capital {
+  background: #2563eb;
+}
+
+.cronograma-mini-interes {
+  background: #f59e0b;
+}
