@@ -51,8 +51,11 @@ export default function MoraPage() {
         return
       }
       const proceso = respuesta.data
+      const morasNuevas = Number(proceso.moras_abiertas ?? 0)
+      const morasActualizadas = Number(proceso.moras_actualizadas ?? 0)
+      const morasActivasProcesadas = morasNuevas + morasActualizadas
       setMensaje(
-        `Proceso ${proceso.fecha}: ${proceso.moras_abiertas} moras abiertas, ${proceso.moras_cerradas} cerradas y ${proceso.expedientes_creados} expedientes creados.`,
+        `Proceso ${proceso.fecha}: ${morasActivasProcesadas} moras activas (${morasNuevas} nuevas y ${morasActualizadas} actualizadas), ${proceso.moras_cerradas} cerradas y ${proceso.expedientes_creados} expedientes creados.`,
       )
       await cargar()
     } finally {
