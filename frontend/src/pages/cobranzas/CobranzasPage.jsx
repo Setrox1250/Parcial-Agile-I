@@ -39,11 +39,13 @@ export default function CobranzasPage() {
   const [mensaje, setMensaje] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const [modalCobro, setModalCobro] = useState(false)
   const [cuotasPorPrestamo, setCuotasPorPrestamo] = useState({})
   const [cargandoCuotas, setCargandoCuotas] = useState(false)
   const [errorCuotas, setErrorCuotas] = useState(null)
   const [cuotasSeleccionadas, setCuotasSeleccionadas] = useState([])
   const solicitudCuotas = useRef(0)
+  const dialogoRef = useRef(null)
 
   // RN-31: mismo cobro reenviado -> un solo pago (se renueva tras cada cobro).
   const [claveIdempotencia, setClaveIdempotencia] = useState(() => crypto.randomUUID())
@@ -65,6 +67,30 @@ export default function CobranzasPage() {
   useEffect(() => {
     cargar()
   }, [cargar])
+
+  const cerrarModalCobro = useCallback(() => {
+    if (enviando) return
+    solicitudCuotas.current += 1
+    setCargandoCuotas(false)
+    setModalCobro(false)
+  }, [enviando])
+
+  useEffect(() => {
+    if (!modalCobro) return undefined
+    const overflowAnterior = document.body.style.overflow
+    const focoAnterior = document.activeElement
+    document.body.style.overflow = 'hidden'
+    dialogoRef.current?.querySelector('button')?.focus()
+    function cerrarConEscape(evento) {
+      if (evento.key === 'Escape' && !enviando) cerrarModalCobro()
+    }
+    window.addEventListener('keydown', cerrarConEscape)
+    return () => {
+      window.removeEventListener('keydown', cerrarConEscape)
+      document.body.style.overflow = overflowAnterior
+      if (focoAnterior instanceof HTMLElement) focoAnterior.focus()
+    }
+  }, [modalCobro, enviando, cerrarModalCobro])
 
   const cambiar = (campo) => (e) => setForm((actual) => ({ ...actual, [campo]: e.target.value }))
 
@@ -190,6 +216,7 @@ export default function CobranzasPage() {
       setForm(FORM_VACIO)
       setClaveIdempotencia(crypto.randomUUID())
       await cargar()
+      setModalCobro(false)
     } finally {
       setEnviando(false)
     }
@@ -236,15 +263,31 @@ export default function CobranzasPage() {
     <section>
       <h1>Cobranza</h1>
 
-      {error && <div className="aviso aviso-error">{error}</div>}
-      {mensaje && <div className="aviso aviso-ok">{mensaje}</div>}
+      {error && !modalCobro && <div className="aviso aviso-error">{error}</div>}
+      {mensaje && !modalCobro && <div className="aviso aviso-ok">{mensaje}</div>}
 
-      <div className="tarjeta">
+      <div className="tarjeta cobranza-abrir">
+        <div>
         <h2>Registrar cobro</h2>
         <p className="cargando">
           El efectivo se confirma al registrarlo; la transferencia queda pendiente de verificación
           del abono (RN-23).
         </p>
+        </div>
+        <button type="button" className="btn" onClick={() => { setError(null); setMensaje(null); setModalCobro(true) }} disabled={cargando || prestamos.length === 0}>Registrar cobro</button>
+      </div>
+
+      {modalCobro && (
+        <div className="flujo-modal-fondo" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) cerrarModalCobro() }}>
+          <section ref={dialogoRef} className="flujo-modal" role="dialog" aria-modal="true" aria-labelledby="cobranza-modal-titulo" aria-busy={enviando || cargandoCuotas}>
+            <header className="flujo-modal-cabecera">
+              <div><span>REGISTRO DE PAGO</span><h2 id="cobranza-modal-titulo">Registrar cobro</h2></div>
+              <button type="button" className="flujo-modal-cerrar" aria-label="Cerrar registro de cobro" onClick={cerrarModalCobro} disabled={enviando}>×</button>
+            </header>
+            <div className="flujo-modal-contenido">
+              {error && <div className="aviso aviso-error">{error}</div>}
+              {mensaje && <div className="aviso aviso-ok">{mensaje}</div>}
+              <div className="tarjeta">
         <form className="formulario" onSubmit={registrar}>
           <label>
             Préstamo a cobrar
@@ -374,6 +417,10 @@ export default function CobranzasPage() {
           )}
         </form>
       </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       <div className="tarjeta">
         <h2>Transferencias por verificar</h2>

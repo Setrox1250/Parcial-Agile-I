@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import DniForm from '../../components/identidad/DniForm.jsx'
 import ResultadoIdentidad from '../../components/identidad/ResultadoIdentidad.jsx'
 import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilidad.jsx'
@@ -15,8 +15,31 @@ export default function IdentidadPrestatarioPage() {
   const [consultando, setConsultando] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [originando, setOriginando] = useState(false)
+  const dialogoRef = useRef(null)
   // Remonta la tarjeta de elegibilidad para refrescar el cupo tras originar.
   const [revisionElegibilidad, setRevisionElegibilidad] = useState(0)
+
+  useEffect(() => {
+    if (!resultado) return undefined
+    const overflowAnterior = document.body.style.overflow
+    const focoAnterior = document.activeElement
+    document.body.style.overflow = 'hidden'
+    dialogoRef.current?.querySelector('button')?.focus()
+    function cerrarConEscape(evento) {
+      if (evento.key === 'Escape') cerrarResultado()
+    }
+    window.addEventListener('keydown', cerrarConEscape)
+    return () => {
+      window.removeEventListener('keydown', cerrarConEscape)
+      document.body.style.overflow = overflowAnterior
+      if (focoAnterior instanceof HTMLElement) focoAnterior.focus()
+    }
+  }, [resultado])
+
+  function cerrarResultado() {
+    setResultado(null)
+    setOriginando(false)
+  }
 
   async function manejarConsulta(dni) {
     setConsultando(true)
@@ -52,29 +75,39 @@ export default function IdentidadPrestatarioPage() {
       <DniForm onConsultar={manejarConsulta} consultando={consultando} />
 
       {resultado && (
-        <ResultadoIdentidad
-          resultado={resultado}
-          onNuevaConsulta={() => setResultado(null)}
-        />
-      )}
+        <div className="flujo-modal-fondo" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) cerrarResultado() }}>
+          <section ref={dialogoRef} className="flujo-modal" role="dialog" aria-modal="true" aria-labelledby="identidad-modal-titulo">
+            <header className="flujo-modal-cabecera">
+              <div>
+                <span>IDENTIDAD Y ELEGIBILIDAD</span>
+                <h2 id="identidad-modal-titulo">{resultado.ok ? 'Resultado de la consulta' : 'No se pudo verificar'}</h2>
+              </div>
+              <button type="button" className="flujo-modal-cerrar" aria-label="Cerrar resultado" onClick={cerrarResultado}>×</button>
+            </header>
+            <div className="flujo-modal-contenido">
+              <ResultadoIdentidad resultado={resultado} onNuevaConsulta={cerrarResultado} />
 
-      {/* HU-04: cupo global y bloqueos tras verificar la identidad (4.5.x). */}
-      {resultado?.ok && resultado.data?.prestatarioId && (
-        <TarjetaElegibilidad
-          key={revisionElegibilidad}
-          prestatarioId={resultado.data.prestatarioId}
-          onRegistrar={() => setOriginando(true)}
-        />
-      )}
+              {/* HU-04: cupo global y bloqueos tras verificar la identidad (4.5.x). */}
+              {resultado.ok && resultado.data?.prestatarioId && (
+                <TarjetaElegibilidad
+                  key={revisionElegibilidad}
+                  prestatarioId={resultado.data.prestatarioId}
+                  onRegistrar={() => setOriginando(true)}
+                />
+              )}
 
-      {/* HU-05: originación con vista previa de cronograma (5.4/5.5). */}
-      {originando && resultado?.ok && resultado.data?.prestatarioId && (
-        <Tarjeta titulo="Originar préstamo (TEA 30 % fija)">
-          <PrestamoForm
-            prestatarioId={resultado.data.prestatarioId}
-            onOrigenExitoso={manejarOrigenExitoso}
-          />
-        </Tarjeta>
+              {/* HU-05: originación con vista previa de cronograma (5.4/5.5). */}
+              {originando && resultado.ok && resultado.data?.prestatarioId && (
+                <Tarjeta titulo="Originar préstamo (TEA 30 % fija)">
+                  <PrestamoForm
+                    prestatarioId={resultado.data.prestatarioId}
+                    onOrigenExitoso={manejarOrigenExitoso}
+                  />
+                </Tarjeta>
+              )}
+            </div>
+          </section>
+        </div>
       )}
     </section>
   )

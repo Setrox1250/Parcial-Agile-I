@@ -32,10 +32,12 @@ export default function ConsultaPage() {
   const [prestatarios, setPrestatarios] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  const [errorDetalle, setErrorDetalle] = useState(null)
   const [seleccion, setSeleccion] = useState(null)
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
   const [originando, setOriginando] = useState(false)
   const solicitud = useRef(0)
+  const dialogoRef = useRef(null)
 
   useEffect(() => {
     let vigente = true
@@ -50,6 +52,23 @@ export default function ConsultaPage() {
     return () => { vigente = false }
   }, [])
 
+  useEffect(() => {
+    if (!seleccion) return undefined
+    const overflowAnterior = document.body.style.overflow
+    const focoAnterior = document.activeElement
+    document.body.style.overflow = 'hidden'
+    dialogoRef.current?.querySelector('button')?.focus()
+    function cerrarConEscape(evento) {
+      if (evento.key === 'Escape') cerrarDetalle()
+    }
+    window.addEventListener('keydown', cerrarConEscape)
+    return () => {
+      window.removeEventListener('keydown', cerrarConEscape)
+      document.body.style.overflow = overflowAnterior
+      if (focoAnterior instanceof HTMLElement) focoAnterior.focus()
+    }
+  }, [seleccion])
+
   const filtrados = useMemo(() => {
     const termino = filtro.trim().toLocaleLowerCase('es-PE')
     if (!termino) return prestatarios
@@ -63,6 +82,7 @@ export default function ConsultaPage() {
   async function abrirPrestatario(prestatario, modo) {
     const idSolicitud = ++solicitud.current
     setError(null)
+    setErrorDetalle(null)
     setCargandoHistorial(true)
     setOriginando(false)
     setSeleccion({ prestatario, modo, historial: null })
@@ -70,12 +90,18 @@ export default function ConsultaPage() {
     if (idSolicitud !== solicitud.current) return
     setCargandoHistorial(false)
     if (!respuesta.ok) {
-      setError(respuesta.error)
-      setSeleccion(null)
+      setErrorDetalle(respuesta.error)
       return
     }
     setSeleccion({ prestatario, modo, historial: respuesta.data })
     if (modo === 'prestamo' && respuesta.data.elegibilidad?.elegible) setOriginando(true)
+  }
+
+  function cerrarDetalle() {
+    solicitud.current += 1
+    setSeleccion(null)
+    setCargandoHistorial(false)
+    setErrorDetalle(null)
   }
 
   async function actualizarHistorial() {
@@ -166,9 +192,20 @@ export default function ConsultaPage() {
         )}
       </Tarjeta>
 
-      {cargandoHistorial && (
-        <p className="consulta-cargando"><Spinner /> Cargando datos del cliente…</p>
-      )}
+      {seleccion && (
+        <div className="consulta-modal-fondo" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) cerrarDetalle() }}>
+          <section ref={dialogoRef} className="consulta-modal" role="dialog" aria-modal="true" aria-labelledby="consulta-modal-titulo" aria-busy={cargandoHistorial}>
+            <header className="consulta-modal-cabecera">
+              <div>
+                <span>{seleccion.modo === 'pagos' ? 'HISTORIAL DEL CLIENTE' : 'ORIGINACIÓN'}</span>
+                <h2 id="consulta-modal-titulo">{nombreCompleto(seleccion.prestatario)}</h2>
+                <p>{documentoDe(seleccion.prestatario)}</p>
+              </div>
+              <button type="button" className="consulta-modal-cerrar" aria-label="Cerrar detalle del cliente" onClick={cerrarDetalle}>×</button>
+            </header>
+            <div className="consulta-modal-contenido">
+              {errorDetalle && <Alerta tipo="error">{errorDetalle.message}</Alerta>}
+              {cargandoHistorial && <p className="consulta-cargando"><Spinner /> Cargando datos del cliente...</p>}
 
       {historial && cliente && (
         <>
@@ -259,6 +296,10 @@ export default function ConsultaPage() {
             )}
           </Tarjeta>
         </>
+      )}
+            </div>
+          </section>
+        </div>
       )}
     </section>
   )

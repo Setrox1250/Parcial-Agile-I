@@ -64,7 +64,10 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
       nuevos.plazo = 'El plazo debe estar entre 1 y 60 meses.'
     }
 
-    if (!fecha || fecha > hoyLocal()) {
+    const hoy = hoyLocal()
+    if (!fecha || fecha < hoy) {
+      nuevos.fecha = 'La fecha de originación no puede ser anterior a hoy.'
+    } else if (fecha > hoy) {
       nuevos.fecha = 'La fecha de originación no puede ser futura.'
     }
 
@@ -164,6 +167,7 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
         id="fecha"
         etiqueta="Fecha de originación"
         type="date"
+        min={hoyLocal()}
         max={hoyLocal()}
         value={fecha}
         onChange={(e) => {
@@ -172,7 +176,7 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
         }}
         disabled={cargandoPreview || cargandoConfirmacion}
         error={errores.fecha}
-        hint="El primer vencimiento se calcula +1 mes calendario."
+        hint="Debe ser la fecha de hoy; el primer vencimiento se calcula +1 mes calendario."
       />
 
       {esAdmin && (

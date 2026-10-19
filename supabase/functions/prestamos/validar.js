@@ -41,7 +41,7 @@ export function parsePlazo(valor) {
   return { plazo, error: null };
 }
 
-// Fecha de originación opcional (default hoy); nunca futura (5.3/5.4.1).
+// Fecha de originación opcional (default hoy); debe ser hoy (5.3/5.4.1).
 export function parseFecha(valor) {
   const hoy = hoyLima();
   if (valor === undefined || valor === null || valor === '') {
@@ -49,6 +49,9 @@ export function parseFecha(valor) {
   }
   if (!esFechaCalendario(valor) || Number(valor.slice(0, 4)) < 2000) {
     return { fecha: null, error: 'La fecha de originación debe ser una fecha válida (YYYY-MM-DD).' };
+  }
+  if (valor < hoy) {
+    return { fecha: null, error: 'La fecha de originación no puede ser anterior a hoy.' };
   }
   if (valor > hoy) {
     return { fecha: null, error: 'La fecha de originación no puede ser futura.' };
