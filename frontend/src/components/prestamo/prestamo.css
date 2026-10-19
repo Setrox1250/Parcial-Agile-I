@@ -7,6 +7,12 @@
   text-align: left;
 }
 
+.prestamo-form-paso {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .prestamo-form select {
   font: inherit;
   padding: 10px 12px;
@@ -41,6 +47,7 @@
 .prestamo-acciones,
 .cronograma-acciones {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 

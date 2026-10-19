@@ -9,6 +9,7 @@ export default function VistaCronograma({
   cuotas,
   totalAPagar,
   onConfirmar,
+  onVolver,
   cargandoConfirmacion,
   resultado,
 }) {
@@ -107,6 +108,16 @@ export default function VistaCronograma({
       ) : null}
 
       <div className="cronograma-acciones">
+        {onVolver && (
+          <Boton
+            type="button"
+            variante="secundario"
+            onClick={onVolver}
+            disabled={cargandoConfirmacion}
+          >
+            Volver a condiciones
+          </Boton>
+        )}
         <Boton onClick={onConfirmar} cargando={cargandoConfirmacion} disabled={!!resultado?.ok}>
           {resultado?.ok ? 'Préstamo confirmado' : 'Confirmar préstamo'}
         </Boton>
