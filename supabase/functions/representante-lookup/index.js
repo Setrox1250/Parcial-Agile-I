@@ -84,9 +84,23 @@ Deno.serve(async (req) => {
 
   const cuerpoProveedor = await respuesta.json().catch(() => null);
   if (!respuesta.ok || cuerpoProveedor?.success === false) {
+    const detalle = obtener(cuerpoProveedor?.error, ["message", "mensaje"])
+      ?? obtener(cuerpoProveedor, ["message", "mensaje", "error"]);
+    const codigo = respuesta.status === 401 || respuesta.status === 403
+      ? "TOKEN_RECHAZADO"
+      : respuesta.status === 402
+        ? "CREDITOS_INSUFICIENTES"
+        : respuesta.status === 429
+          ? "RATE_LIMIT_PROVEEDOR"
+          : "PROVEEDOR_ERROR";
     const estado = respuesta.status === 429 ? 429 : 502;
-    const codigo = respuesta.status === 429 ? "RATE_LIMIT_PROVEEDOR" : "PROVEEDOR_ERROR";
-    return errorResponse("No se pudo consultar el representante legal en el proveedor.", estado, codigo);
+    const mensaje = `JSON.pe rechazó la consulta (HTTP ${respuesta.status})${detalle ? `: ${detalle.slice(0, 180)}` : "."}`;
+    console.error("representante-lookup: proveedor rechazó la consulta", {
+      status: respuesta.status,
+      codigo,
+      detalle: detalle?.slice(0, 180) ?? null,
+    });
+    return errorResponse(mensaje, estado, codigo);
   }
 
   const representante = normalizarRepresentante(cuerpoProveedor);
