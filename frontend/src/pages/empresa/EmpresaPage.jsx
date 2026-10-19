@@ -5,7 +5,6 @@ import AcreditarRepresentanteForm from '../../components/empresa/AcreditarRepres
 import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilidad.jsx'
 import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
-import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import { consultarRuc } from '../../services/ruc.js'
 import { consultarDni } from '../../services/dni.js'
@@ -38,8 +37,45 @@ export default function EmpresaPage() {
       const respuesta = await consultarRuc(ruc)
       setResultado(respuesta)
       if (respuesta.ok) {
-        const dniRepresentante = respuesta.data?.representanteDni || respuesta.data?.representanteDniSugerido
+        let representante = null
+        setConsultandoRepresentante(true)
+        const consultaRepresentante = ruc.startsWith('20')
+          ? await consultarRepresentanteLegal(ruc)
+          : null
+        if (consultaRepresentante?.ok) {
+          representante = consultaRepresentante.data
+          setRepresentanteConsultado(representante)
+        } else if (consultaRepresentante && !consultaRepresentante.ok) {
+          setErrorRepresentante(consultaRepresentante.error.message || 'No se encontró al representante legal.')
+        }
+        setConsultandoRepresentante(false)
+
+        const dniRepresentante = representante?.dni
+          || respuesta.data?.representanteDni
+          || respuesta.data?.representanteDniSugerido
         if (dniRepresentante) {
+          if (!representante) {
+            representante = {
+              dni: dniRepresentante,
+              nombres: null,
+              cargo: respuesta.data?.representanteRol,
+              proveedor: 'APISPERU',
+            }
+            setRepresentanteConsultado(representante)
+          }
+          setResultado((actual) => actual?.ok
+            ? {
+                ...actual,
+                data: {
+                  ...actual.data,
+                  representanteDni: dniRepresentante,
+                  representanteRol: representante.cargo || actual.data.representanteRol,
+                  representanteEstado: actual.data.representanteEstado === 'ACREDITADO'
+                    ? 'ACREDITADO'
+                    : 'VINCULADO',
+                },
+              }
+            : actual)
           setConsultandoIdentidadRepresentante(true)
           const identidad = await consultarDni(dniRepresentante)
           if (identidad.ok) setIdentidadRepresentante(identidad.data)
@@ -55,24 +91,6 @@ export default function EmpresaPage() {
     } finally {
       setConsultando(false)
     }
-  }
-
-  async function manejarConsultaRepresentante() {
-    if (!resultado?.ok) return
-    setConsultandoRepresentante(true)
-    setErrorRepresentante('')
-    setRepresentanteConsultado(null)
-    const respuesta = await consultarRepresentanteLegal(resultado.data.numeroRuc)
-    if (respuesta.ok) {
-      setRepresentanteConsultado(respuesta.data)
-      setConsultandoIdentidadRepresentante(true)
-      const identidad = await consultarDni(respuesta.data.dni)
-      if (identidad.ok) setIdentidadRepresentante(identidad.data)
-      setConsultandoIdentidadRepresentante(false)
-    } else {
-      setErrorRepresentante(respuesta.error.message || 'No se encontró al representante legal.')
-    }
-    setConsultandoRepresentante(false)
   }
 
   function manejarRepresentanteAcreditado(representante) {
@@ -129,35 +147,15 @@ export default function EmpresaPage() {
       {paso === 'representacion' && resultado?.ok && (
         <>
           <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('empresa')}>Volver a empresa</Boton></div>
-          <ResultadoEmpresa resultado={resultado} representanteConsultado={representanteConsultado} identidadRepresentante={identidadRepresentante} consultandoIdentidadRepresentante={consultandoIdentidadRepresentante} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
-          {resultado.data.numeroRuc.startsWith('20') && (
-        <Tarjeta titulo="Representante legal (consulta opcional)">
-          <p className="nota">
-            Esta consulta es independiente de APISPERU y solo sugiere datos para facilitar la validación.
-          </p>
-          <Boton
-            type="button"
-            variante="secundario"
-            cargando={consultandoRepresentante}
-            onClick={manejarConsultaRepresentante}
-          >
-            {consultandoRepresentante ? 'Buscando representante…' : 'Buscar representante legal'}
-          </Boton>
-          {errorRepresentante && <Alerta tipo="error">{errorRepresentante}</Alerta>}
-          {representanteConsultado && (
-            <div className="discrepancia">
-              <p><strong>Representante:</strong> {representanteConsultado.nombres || 'Nombre no informado'}</p>
-              <p><strong>DNI:</strong> {representanteConsultado.dni}</p>
-              {representanteConsultado.cargo && <p><strong>Cargo:</strong> {representanteConsultado.cargo}</p>}
-              {representanteConsultado.fechaNombramiento && (
-                <p><strong>Fecha de nombramiento:</strong> {representanteConsultado.fechaNombramiento}</p>
-              )}
-              {representanteConsultado.estadoCargo && <p><strong>Estado del cargo:</strong> {representanteConsultado.estadoCargo}</p>}
-              <p className="nota">Dato informativo de JSON.pe. Valide el DNI y compruebe las facultades antes de acreditar la representación.</p>
-            </div>
-          )}
-        </Tarjeta>
-          )}
+          <ResultadoEmpresa
+            resultado={resultado}
+            representanteConsultado={representanteConsultado}
+            identidadRepresentante={identidadRepresentante}
+            consultandoRepresentante={consultandoRepresentante}
+            consultandoIdentidadRepresentante={consultandoIdentidadRepresentante}
+            errorRepresentante={errorRepresentante}
+            onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }}
+          />
 
           {resultado.data?.prestatarioId && resultado.data.representanteEstado !== 'ACREDITADO' && (
         <AcreditarRepresentanteForm
@@ -174,7 +172,15 @@ export default function EmpresaPage() {
       {paso === 'elegibilidad' && resultado?.ok && resultado.data?.prestatarioId && (
         <>
         <div className="flujo-pagina-acciones"><Boton type="button" variante="secundario" onClick={() => setPaso('representacion')}>Volver a representación</Boton></div>
-        <ResultadoEmpresa resultado={resultado} representanteConsultado={representanteConsultado} identidadRepresentante={identidadRepresentante} consultandoIdentidadRepresentante={consultandoIdentidadRepresentante} onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }} />
+        <ResultadoEmpresa
+          resultado={resultado}
+          representanteConsultado={representanteConsultado}
+          identidadRepresentante={identidadRepresentante}
+          consultandoRepresentante={consultandoRepresentante}
+          consultandoIdentidadRepresentante={consultandoIdentidadRepresentante}
+          errorRepresentante={errorRepresentante}
+          onNuevaConsulta={() => { setResultado(null); setPaso('empresa') }}
+        />
         <TarjetaElegibilidad
           key={revisionElegibilidad}
           prestatarioId={resultado.data.prestatarioId}

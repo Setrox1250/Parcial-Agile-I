@@ -33,7 +33,7 @@ const REPRESENTANTE = {
 }
 
 // Resultado de la consulta de RUC: ficha de empresa (solo lectura) o error tipificado.
-export default function ResultadoEmpresa({ resultado, representanteConsultado, identidadRepresentante, consultandoIdentidadRepresentante, onNuevaConsulta }) {
+export default function ResultadoEmpresa({ resultado, representanteConsultado, identidadRepresentante, consultandoRepresentante, consultandoIdentidadRepresentante, errorRepresentante, onNuevaConsulta }) {
   if (resultado.ok) {
     const ficha = resultado.data
     const representante = ficha.representanteEstado === 'ACREDITADO'
@@ -115,6 +115,23 @@ export default function ResultadoEmpresa({ resultado, representanteConsultado, i
             </>
           )}
         </dl>
+
+        {consultandoRepresentante && (
+          <p className="nota">Consultando automáticamente al representante legal…</p>
+        )}
+        {errorRepresentante && <Alerta tipo="error">{errorRepresentante}</Alerta>}
+        {representanteConsultado && (
+          <div className="discrepancia">
+            <p><strong>Representante legal consultado:</strong> {representanteConsultado.nombres || 'Nombre no informado'}</p>
+            <p><strong>DNI:</strong> {representanteConsultado.dni}</p>
+            {representanteConsultado.cargo && <p><strong>Cargo:</strong> {representanteConsultado.cargo}</p>}
+            {representanteConsultado.fechaNombramiento && (
+              <p><strong>Fecha de nombramiento:</strong> {representanteConsultado.fechaNombramiento}</p>
+            )}
+            {representanteConsultado.estadoCargo && <p><strong>Estado del cargo:</strong> {representanteConsultado.estadoCargo}</p>}
+            <p className="nota">Dato informativo del proveedor. Valide el DNI y compruebe las facultades antes de acreditar la representación.</p>
+          </div>
+        )}
 
         {representante && (
           <p className="nota">

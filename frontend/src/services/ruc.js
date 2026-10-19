@@ -60,7 +60,7 @@ async function consultarEnServicio(ruc, representanteDni) {
 // --- Mock (VITE_MOCK_RUC=1) -------------------------------------------------
 //   20131312955 → empresa NUEVA, RUC 20 (SUNAT)
 //   10609933700 → persona natural con negocio (TITULAR derivado del DNI)
-//   20123456789 → RUC NO HABIDO (bloquea originación)
+//   20123456786 → RUC NO HABIDO (bloquea originación)
 //   20512345678 → RUC no encontrado
 
 const ESCENARIOS_MOCK = {

@@ -1,6 +1,8 @@
 import { llamarFuncion } from './supabase.js'
 import { esRucValido } from '../utils/ruc.js'
 
+const MOCK_ACTIVO = import.meta.env.VITE_MOCK_RUC === '1'
+
 function fallo(code, message) {
   return { ok: false, error: { code, message } }
 }
@@ -9,6 +11,23 @@ function fallo(code, message) {
 export async function consultarRepresentanteLegal(ruc) {
   if (!esRucValido(ruc) || !ruc.startsWith('20')) {
     return fallo('RUC_INVALIDO', 'Ingrese un RUC válido de empresa (20).')
+  }
+
+  if (MOCK_ACTIVO) {
+    if (ruc === '20131312955') {
+      return {
+        ok: true,
+        data: {
+          dni: '99000001',
+          nombres: 'Ana Lucía Torres Mendoza',
+          cargo: 'REPRESENTANTE LEGAL',
+          fechaNombramiento: '2024-01-15',
+          estadoCargo: 'VIGENTE',
+          proveedor: 'JSON.pe (mock)',
+        },
+      }
+    }
+    return fallo('REPRESENTANTE_NO_ENCONTRADO', 'El mock no tiene un representante para este RUC.')
   }
 
   try {
