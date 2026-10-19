@@ -6,6 +6,7 @@ import { handleCors } from '../_shared/cors.js';
 import { json, errorResponse } from '../_shared/response.js';
 import { requireAuth, requireRole } from '../_shared/auth.js';
 import { createAdminClient } from '../_shared/supabase.js';
+import { auditar, obtenerCorrelacion } from '../_shared/auditoria.js';
 import { generarCronograma, totalAPagar } from '../_shared/cronograma.js';
 import {
   parseCuerpoOriginacion,
@@ -47,6 +48,7 @@ Deno.serve(async (req) => {
   if (errorAuth) return errorAuth;
   const errorRol = requireRole(perfil, ROLES);
   if (errorRol) return errorRol;
+  const correlacion = obtenerCorrelacion(req);
 
   const { pathname } = new URL(req.url);
   const esPreview = pathname.endsWith('/preview');
@@ -131,6 +133,11 @@ Deno.serve(async (req) => {
   if (errorPrestamo) {
     return errorResponse('Préstamo creado pero no legible', 500, 'INTERNAL_ERROR');
   }
+
+  await auditar(admin, {
+    perfil, correlacion, accion: 'CREAR', entidad: 'prestamos', entidadId: prestamo.id,
+    metadatos: { idempotente: data.idempotente === true, idempotency_key: datos.idempotencyKey },
+  });
 
   return json(
     {

@@ -2,6 +2,7 @@ import { handleCors } from "../_shared/cors.js";
 import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole } from "../_shared/auth.js";
 import { createAdminClient } from "../_shared/supabase.js";
+import { auditar, obtenerCorrelacion } from "../_shared/auditoria.js";
 
 const ROLES = ["ADMIN", "SUPERVISOR_FINANCIERO"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -72,7 +73,7 @@ async function listar(admin) {
   return json({ perfiles });
 }
 
-async function crear(admin, body) {
+async function crear(admin, body, actor, correlacion) {
   const email = String(body.email ?? "").trim();
   const password = String(body.password ?? "");
   const nombreVisible = String(body.nombre_visible ?? "").trim();
@@ -120,10 +121,15 @@ async function crear(admin, body) {
     return errorResponse("No se pudo crear el perfil", 400, "PERFIL_CREATE_ERROR");
   }
 
+  await auditar(admin, {
+    perfil: actor, correlacion, accion: "CREAR", entidad: "perfiles", entidadId: perfil.id,
+    metadatos: { rol_asignado: perfil.rol, sucursal_id: perfil.sucursal_id },
+  });
+
   return json({ perfil: { ...perfil, sucursal_nombre: sucursal.nombre } }, 201);
 }
 
-async function actualizar(admin, id, body) {
+async function actualizar(admin, id, body, actor, correlacion) {
   const { data: actual, error } = await admin
     .from("perfiles")
     .select("id, auth_user_id, nombre_visible, rol, sucursal_id, activo")
@@ -159,6 +165,11 @@ async function actualizar(admin, id, body) {
     .single();
   if (errorUpdate) return errorResponse("No se pudo actualizar el perfil", 500, "INTERNAL_ERROR");
 
+  await auditar(admin, {
+    perfil: actor, correlacion, accion: "ACTUALIZAR", entidad: "perfiles", entidadId: perfil.id,
+    metadatos: { campos: Object.keys(cambios) },
+  });
+
   return json({ perfil: { ...perfil, sucursal_nombre: sucursal.nombre } });
 }
 
@@ -172,6 +183,7 @@ Deno.serve(async (req) => {
 
   const errorRol = requireRole(perfil, ["ADMIN"]);
   if (errorRol) return errorRol;
+  const correlacion = obtenerCorrelacion(req);
 
   const admin = createAdminClient();
   const { pathname } = new URL(req.url);
@@ -190,7 +202,7 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return crear(admin, body);
+    return crear(admin, body, perfil, correlacion);
   }
 
   if (req.method === "PATCH") {
@@ -203,9 +215,8 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return actualizar(admin, id, body);
+    return actualizar(admin, id, body, perfil, correlacion);
   }
 
   return metodoNoPermitido();
 });
-

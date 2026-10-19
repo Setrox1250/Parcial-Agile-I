@@ -20,6 +20,7 @@ import { handleCors } from "../_shared/cors.js";
 import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole, assertSucursalPropia } from "../_shared/auth.js";
 import { createAdminClient } from "../_shared/supabase.js";
+import { auditar, obtenerCorrelacion } from "../_shared/auditoria.js";
 import { esUuid, extraerIdPago, parseRegistro, parseVerificacion } from "./validar.js";
 
 const ROLES = ["ADMIN", "SUPERVISOR_FINANCIERO"];
@@ -164,7 +165,7 @@ async function detalle(admin, perfil, pagoId) {
   return leido.response ?? json(leido.data);
 }
 
-async function registrar(admin, perfil, body) {
+async function registrar(admin, perfil, body, correlacion) {
   const { prestamoId, monto, medio, referencia, idempotencyKey, error } = parseRegistro(body);
   if (error) return errorResponse(error, 400, "VALIDATION_ERROR");
 
@@ -211,10 +212,14 @@ async function registrar(admin, perfil, body) {
 
   const leido = await leerDetalle(admin, perfil, data.pago_id);
   if (leido.response) return leido.response;
+  await auditar(admin, {
+    perfil, correlacion, accion: "CREAR", entidad: "pagos", entidadId: data.pago_id,
+    metadatos: { idempotente: data.idempotente === true, idempotency_key: idempotencyKey },
+  });
   return json({ ...leido.data, idempotente: data.idempotente === true }, data.idempotente ? 200 : 201);
 }
 
-async function verificar(admin, perfil, pagoId, body) {
+async function verificar(admin, perfil, pagoId, body, correlacion) {
   const { accion, motivo, error } = parseVerificacion(body);
   if (error) return errorResponse(error, 400, "VALIDATION_ERROR");
 
@@ -238,6 +243,10 @@ async function verificar(admin, perfil, pagoId, body) {
     });
     if (rpcError || !data) return errorResponse("No se pudo reversar el cobro", 500, "INTERNAL_ERROR");
     if (!data.ok) return errorResponse("No se puede reversar este pago", 409, data.motivo ?? "REVERSO_INVALIDO");
+    await auditar(admin, {
+      perfil, correlacion, accion: "REVERSAR", entidad: "pagos", entidadId: pagoId,
+      metadatos: { motivo, reversion_id: data.reversion_id ?? null },
+    });
     return detalle(admin, perfil, pagoId);
   }
 
@@ -264,6 +273,11 @@ async function verificar(admin, perfil, pagoId, body) {
     return errorResponse("Acción inválida", 400, "ACCION_INVALIDA");
   }
 
+  await auditar(admin, {
+    perfil, correlacion, accion: "ACTUALIZAR", entidad: "pagos", entidadId: pagoId,
+    metadatos: { operacion: accion },
+  });
+
   return detalle(admin, perfil, pagoId);
 }
 
@@ -280,6 +294,7 @@ Deno.serve(async (req) => {
 
   const errorRol = requireRole(perfil, ROLES);
   if (errorRol) return errorRol;
+  const correlacion = obtenerCorrelacion(req);
 
   const { pathname } = new URL(req.url);
   const pagoId = extraerIdPago(pathname);
@@ -304,7 +319,7 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return registrar(admin, perfil, body);
+    return registrar(admin, perfil, body, correlacion);
   }
 
   if (req.method === "PATCH") {
@@ -317,7 +332,7 @@ Deno.serve(async (req) => {
     } catch {
       return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON");
     }
-    return verificar(admin, perfil, pagoId, body);
+    return verificar(admin, perfil, pagoId, body, correlacion);
   }
 
   return metodoNoPermitido();
