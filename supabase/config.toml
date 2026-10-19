@@ -22,6 +22,10 @@ entrypoint = './functions/elegibilidad/index.js'
 verify_jwt = true
 entrypoint = './functions/prestamos/index.js'
 
+[functions.prestatarios]
+verify_jwt = true
+entrypoint = './functions/prestatarios/index.js'
+
 [functions.quien-soy]
 verify_jwt = true
 entrypoint = './functions/quien-soy/index.js'
