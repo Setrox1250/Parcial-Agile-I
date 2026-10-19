@@ -221,7 +221,8 @@ export default function DesembolsosPage() {
                         '—'
                       )}
                     </td>
-                    <td>
+                    <td className="desembolso-acciones-celda">
+                      <div className="desembolso-acciones">
                       {enEdicion ? (
                         <button
                           type="button"
@@ -240,7 +241,7 @@ export default function DesembolsosPage() {
                         >
                           Editar entrega
                         </button>
-                      )}{' '}
+                      )}
                       <button
                         type="button"
                         className="btn btn-secundario"
@@ -248,7 +249,7 @@ export default function DesembolsosPage() {
                           disabled={ocupado || editandoDatos}
                       >
                         Editar préstamo
-                      </button>{' '}
+                      </button>
                       <button
                         type="button"
                         className="btn"
@@ -256,7 +257,7 @@ export default function DesembolsosPage() {
                         disabled={ocupado || editandoDatos || (form.metodo === 'TRANSFERENCIA' && !form.referencia.trim())}
                       >
                         {ocupado ? 'Procesando…' : 'Confirmar desembolso'}
-                      </button>{' '}
+                      </button>
                       <button
                         type="button"
                         className="btn btn-secundario"
@@ -265,6 +266,7 @@ export default function DesembolsosPage() {
                       >
                         Anular
                       </button>
+                      </div>
                     </td>
                   </tr>
                   {editandoTerminos === p.id && (
