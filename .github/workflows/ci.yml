@@ -38,5 +38,5 @@ jobs:
             echo "check $f"
             deno check --node-modules-dir=none "$f"
           done
-      - name: Pruebas unitarias de helpers de auth (HU-01)
-        run: deno test --node-modules-dir=none supabase/functions/_shared/
+      - name: Pruebas unitarias de helpers (HU-01 y HU-04)
+        run: deno test --node-modules-dir=none supabase/functions/
