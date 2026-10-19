@@ -70,6 +70,29 @@
   flex-wrap: wrap;
 }
 
+/* HU-09 9.3.1: buscador global DNI/RUC en la barra superior. */
+.buscador-global {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.buscador-global input {
+  font: inherit;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  width: 13rem;
+  letter-spacing: 0.5px;
+}
+
+.buscador-global input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .sesion .etiqueta {
   background: var(--accent-bg);
   color: var(--accent);
