@@ -70,7 +70,14 @@ curl http://localhost:54321/functions/v1/health
 
 ```bash
 supabase secrets set SCRALL_API_KEY=... --project-ref TU-REF
+supabase secrets set JSONPE_API_TOKEN=... --project-ref TU-REF
 ```
+
+La búsqueda de representante legal es opcional y usa la API específica de JSON.pe
+(`POST /api/representante-legal`); no reemplaza la consulta RUC de APISPERU. Obtén
+el token del proveedor y guárdalo como secreto de Supabase, nunca en `frontend/.env`.
+La respuesta solo sugiere nombre y DNI: el DNI debe validarse en HU-02 y las
+facultades deben comprobarse y acreditarse en el flujo existente.
 
 ### Despliegue automático
 

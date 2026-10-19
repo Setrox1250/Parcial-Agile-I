@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import CampoTexto from '../ui/CampoTexto.jsx'
 import Boton from '../ui/Boton.jsx'
 import Alerta from '../ui/Alerta.jsx'
@@ -13,6 +13,10 @@ export default function AcreditarRepresentanteForm({ empresaId, dniSugerido = ''
   const [evidencia, setEvidencia] = useState('')
   const [cargando, setCargando] = useState(false)
   const [resultado, setResultado] = useState(null)
+
+  useEffect(() => {
+    if (dniSugerido) setDni(normalizarDni(dniSugerido))
+  }, [dniSugerido])
 
   async function enviar(evento) {
     evento.preventDefault()

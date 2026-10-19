@@ -5,7 +5,10 @@ import AcreditarRepresentanteForm from '../../components/empresa/AcreditarRepres
 import TarjetaElegibilidad from '../../components/elegibilidad/TarjetaElegibilidad.jsx'
 import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
+import Alerta from '../../components/ui/Alerta.jsx'
+import Boton from '../../components/ui/Boton.jsx'
 import { consultarRuc } from '../../services/ruc.js'
+import { consultarRepresentanteLegal } from '../../services/representanteLegal.js'
 import FlujoCredito from '../../components/operacion/FlujoCredito.jsx'
 import '../identidad/identidad.css'
 
@@ -17,11 +20,16 @@ export default function EmpresaPage() {
   const [resultado, setResultado] = useState(null)
   const [originando, setOriginando] = useState(false)
   const [revisionElegibilidad, setRevisionElegibilidad] = useState(0)
+  const [consultandoRepresentante, setConsultandoRepresentante] = useState(false)
+  const [representanteConsultado, setRepresentanteConsultado] = useState(null)
+  const [errorRepresentante, setErrorRepresentante] = useState('')
 
   async function manejarConsulta(ruc, representanteDni) {
     setConsultando(true)
     setResultado(null)
     setOriginando(false)
+    setRepresentanteConsultado(null)
+    setErrorRepresentante('')
     try {
       const respuesta = await consultarRuc(ruc, representanteDni)
       setResultado(respuesta)
@@ -33,6 +41,20 @@ export default function EmpresaPage() {
     } finally {
       setConsultando(false)
     }
+  }
+
+  async function manejarConsultaRepresentante() {
+    if (!resultado?.ok) return
+    setConsultandoRepresentante(true)
+    setErrorRepresentante('')
+    setRepresentanteConsultado(null)
+    const respuesta = await consultarRepresentanteLegal(resultado.data.numeroRuc)
+    if (respuesta.ok) {
+      setRepresentanteConsultado(respuesta.data)
+    } else {
+      setErrorRepresentante(respuesta.error.message || 'No se encontró al representante legal.')
+    }
+    setConsultandoRepresentante(false)
   }
 
   function manejarRepresentanteAcreditado(representante) {
@@ -78,13 +100,42 @@ export default function EmpresaPage() {
         <ResultadoEmpresa resultado={resultado} onNuevaConsulta={() => setResultado(null)} />
       )}
 
+      {resultado?.ok && resultado.data.numeroRuc.startsWith('20') && (
+        <Tarjeta titulo="Representante legal (consulta opcional)">
+          <p className="nota">
+            Esta consulta es independiente de APISPERU y solo sugiere datos para facilitar la validación.
+          </p>
+          <Boton
+            type="button"
+            variante="secundario"
+            cargando={consultandoRepresentante}
+            onClick={manejarConsultaRepresentante}
+          >
+            {consultandoRepresentante ? 'Buscando representante…' : 'Buscar representante legal'}
+          </Boton>
+          {errorRepresentante && <Alerta tipo="error">{errorRepresentante}</Alerta>}
+          {representanteConsultado && (
+            <div className="discrepancia">
+              <p><strong>Representante:</strong> {representanteConsultado.nombres || 'Nombre no informado'}</p>
+              <p><strong>DNI:</strong> {representanteConsultado.dni}</p>
+              {representanteConsultado.cargo && <p><strong>Cargo:</strong> {representanteConsultado.cargo}</p>}
+              {representanteConsultado.fechaNombramiento && (
+                <p><strong>Fecha de nombramiento:</strong> {representanteConsultado.fechaNombramiento}</p>
+              )}
+              {representanteConsultado.estadoCargo && <p><strong>Estado del cargo:</strong> {representanteConsultado.estadoCargo}</p>}
+              <p className="nota">Dato informativo de JSON.pe. Valide el DNI y compruebe las facultades antes de acreditar la representación.</p>
+            </div>
+          )}
+        </Tarjeta>
+      )}
+
       {resultado?.ok &&
         resultado.data?.prestatarioId &&
         resultado.data.representanteEstado !== 'ACREDITADO' && (
         <AcreditarRepresentanteForm
           key={resultado.data.prestatarioId}
           empresaId={resultado.data.prestatarioId}
-          dniSugerido={resultado.data.representanteDniSugerido ?? resultado.data.representanteDni}
+          dniSugerido={representanteConsultado?.dni ?? resultado.data.representanteDniSugerido ?? resultado.data.representanteDni}
           onAcreditado={manejarRepresentanteAcreditado}
         />
       )}
