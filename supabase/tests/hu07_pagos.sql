@@ -18,15 +18,27 @@ DELETE FROM public.pagos
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
     JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
-    WHERE pn.dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828')
+    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
+);
+DELETE FROM public.cuotas
+WHERE prestamo_id IN (
+    SELECT p.id FROM public.prestamos p
+    JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
+    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
+);
+DELETE FROM public.desembolsos
+WHERE prestamo_id IN (
+    SELECT p.id FROM public.prestamos p
+    JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
+    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
 );
 DELETE FROM public.prestamos
 WHERE prestatario_id IN (
     SELECT pn.prestatario_id FROM public.personas_naturales pn
-    WHERE pn.dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828')
+    WHERE pn.dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989')
 );
 DELETE FROM public.personas_naturales
-WHERE dni IN ('18181818','19191919','23232323','24242424','25252525','26262626','27272727','28282828');
+WHERE dni IN ('81818181','82828282','83838383','84848484','85858585','86868686','87878787','89898989');
 DELETE FROM public.prestatarios
 WHERE id NOT IN (SELECT prestatario_id FROM public.personas_naturales)
   AND id NOT IN (SELECT prestatario_id FROM public.empresas)
