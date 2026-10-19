@@ -14,6 +14,10 @@ entrypoint = './functions/health/index.js'
 verify_jwt = true
 entrypoint = './functions/dni-lookup/index.js'
 
+[functions.elegibilidad]
+verify_jwt = true
+entrypoint = './functions/elegibilidad/index.js'
+
 [functions.quien-soy]
 verify_jwt = true
 entrypoint = './functions/quien-soy/index.js'
