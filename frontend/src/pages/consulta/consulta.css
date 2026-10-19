@@ -541,6 +541,24 @@
   margin: 0;
 }
 
+.consulta-interes-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #d7e8eb;
+  border-radius: 10px;
+  background: #f4fafb;
+  color: #536779;
+  font-size: .82rem;
+}
+
+.consulta-interes-resumen span { display: flex; gap: 8px; }
+.consulta-interes-resumen strong { color: #163347; }
+.consulta-interes-resumen small { margin-left: auto; color: #087f8c; font-weight: 700; }
+
 .consulta-detalle h4 {
   margin: 14px 0 8px;
   font-size: 0.9rem;

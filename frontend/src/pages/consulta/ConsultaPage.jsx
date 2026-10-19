@@ -42,6 +42,8 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
   const { sucursal, principal, plazoMeses, tea, fechaOriginacion, estado, desembolso } = prestamo
   const cuotas = prestamo.cuotas ?? []
   const pagos = prestamo.pagos ?? []
+  const interesTotal = cuotas.reduce((total, cuota) => total + Number(cuota.interesProgramado ?? 0), 0)
+  const totalProgramado = cuotas.reduce((total, cuota) => total + Number(cuota.totalProgramado ?? 0), 0)
   const saldoPendiente = cuotas.reduce((total, c) => total + Number(c.saldo), 0)
   const cobrable = estado === 'ACTIVO' && saldoPendiente > 0.005
 
@@ -74,6 +76,13 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
                 </Boton>
               )}
             </div>
+            {cuotas.length > 0 && (
+              <div className="consulta-interes-resumen" aria-label="Resumen de intereses del préstamo">
+                <span>Interés total calculado <strong>{soles(interesTotal)}</strong></span>
+                <span>Total del cronograma <strong>{soles(totalProgramado)}</strong></span>
+                <small>TEA fija {(Number(tea) * 100).toFixed(2)} %</small>
+              </div>
+            )}
             {desembolso && (
               <p className="consulta-desembolso">
                 Desembolsado {soles(desembolso.importe)} · {desembolso.metodo}

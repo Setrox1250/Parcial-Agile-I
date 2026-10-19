@@ -5,6 +5,7 @@
 //                                   sucursal de la sesión (ADMIN: todos) y
 //                                   evidencia reciente (CA-16).
 //   GET    /desembolso/<uuid>    -> detalle de un préstamo + su desembolso.
+//   PUT    /desembolso/<uuid>    -> corrige términos mientras está pendiente.
 //   POST   /desembolso/<uuid>    -> confirma la entrega de dinero (CA-16).
 //   DELETE /desembolso/<uuid>    -> anula antes del desembolso y libera cupo
 //                                   (CA-17, función liberar_reserva HU-04).
@@ -16,14 +17,15 @@ import { json, errorResponse } from "../_shared/response.js";
 import { requireAuth, requireRole, assertSucursalPropia } from "../_shared/auth.js";
 import { createAdminClient } from "../_shared/supabase.js";
 import { auditar, obtenerCorrelacion } from "../_shared/auditoria.js";
+import { generarCronograma } from "../_shared/cronograma.js";
 import { esUuid, extraerIdPrestamo, parseConfirmacion } from "./validar.js";
 
 const ROLES = ["ADMIN", "SUPERVISOR_FINANCIERO"];
 const SELECT_PRESTAMO =
   "id, prestatario_id, sucursal_id, principal, plazo_meses, tea, estado, " +
-  "creado_en, desembolsado_en, " +
+  "creado_en, desembolsado_en, fecha_originacion, " +
   "prestatarios!inner(tipo, personas_naturales(dni, nombres, apellido_paterno, " +
-  "apellido_materno), empresas(ruc, razon_social)), sucursales(nombre)";
+  "apellido_materno), empresas(ruc, razon_social)), sucursales(nombre), cuotas(interes_programado)";
 
 function etiquetaPrestatario(prestamo) {
   const ficha = prestamo.prestatarios;
@@ -49,6 +51,8 @@ function formatearPrestamo(p) {
     principal: p.principal,
     plazoMeses: p.plazo_meses,
     tea: p.tea,
+    fechaOriginacion: p.fecha_originacion,
+    interesTotal: (p.cuotas ?? []).reduce((suma, cuota) => suma + Number(cuota.interes_programado ?? 0), 0),
     sucursal: p.sucursales?.nombre ?? null,
     creadoEn: p.creado_en,
     desembolsadoEn: p.desembolsado_en,
@@ -208,6 +212,39 @@ async function confirmar(admin, perfil, prestamoId, body, correlacion) {
   }
 }
 
+async function editar(admin, perfil, prestamoId, body, correlacion) {
+  const cargado = await cargarPrestamo(admin, perfil, prestamoId);
+  if (cargado.error) return cargado.error;
+  const monto = Number(body?.monto);
+  const plazoMeses = Number(body?.plazoMeses);
+  if (!Number.isFinite(monto) || monto <= 0 || Math.round(monto * 100) / 100 !== monto || !Number.isInteger(plazoMeses) || plazoMeses < 1 || plazoMeses > 60) {
+    return errorResponse("Indique un monto, plazo y cronograma válidos", 400, "VALIDATION_ERROR");
+  }
+  let cuotas;
+  try {
+    cuotas = generarCronograma(monto, plazoMeses, cargado.prestamo.fecha_originacion);
+  } catch (e) {
+    return errorResponse(e.message, 400, "VALIDATION_ERROR");
+  }
+  const { data, error } = await admin.rpc("editar_prestamo_pendiente", {
+    p_prestamo_id: prestamoId,
+    p_monto: monto,
+    p_plazo_meses: plazoMeses,
+    p_cuotas: cuotas,
+  });
+  if (error || !data) return errorResponse("No se pudo actualizar el préstamo", 500, "INTERNAL_ERROR");
+  if (!data.ok) {
+    const conflicto = ["ESTADO_NO_EDITABLE", "CUPO_INSUFICIENTE", "PRESTATARIO_BLOQUEADO"].includes(data.motivo);
+    return errorResponse(data.motivo === "CUPO_INSUFICIENTE" ? "El monto supera el cupo disponible." : "No se pudo editar: " + data.motivo, conflicto ? 409 : 400, data.motivo, { bloqueos: data.bloqueos ?? [], disponible: data.disponible ?? null });
+  }
+  await auditar(admin, {
+    perfil, correlacion, accion: "ACTUALIZAR", entidad: "prestamos", entidadId: prestamoId,
+    metadatos: { operacion: "EDITAR_ANTES_DESEMBOLSO", principal_anterior: cargado.prestamo.principal, principal_nuevo: monto, plazo_anterior: cargado.prestamo.plazo_meses, plazo_nuevo: plazoMeses },
+  });
+  const actualizado = await cargarPrestamo(admin, perfil, prestamoId);
+  return actualizado.error ? actualizado.error : json({ prestamo: formatearPrestamo(actualizado.prestamo) });
+}
+
 // CA-17: anulación antes de la entrega; libera la reserva de cupo (HU-04).
 async function anular(admin, perfil, prestamoId, correlacion) {
   const cargado = await cargarPrestamo(admin, perfil, prestamoId);
@@ -244,7 +281,7 @@ async function anular(admin, perfil, prestamoId, correlacion) {
 }
 
 function metodoNoPermitido() {
-  return errorResponse("Use GET, POST o DELETE", 405, "METHOD_NOT_ALLOWED");
+  return errorResponse("Use GET, PUT, POST o DELETE", 405, "METHOD_NOT_ALLOWED");
 }
 
 Deno.serve(async (req) => {
@@ -274,6 +311,12 @@ Deno.serve(async (req) => {
   }
 
   if (!prestamoId) return metodoNoPermitido();
+
+  if (req.method === "PUT") {
+    let body;
+    try { body = await req.json(); } catch { return errorResponse("Cuerpo JSON inválido", 400, "INVALID_JSON"); }
+    return editar(admin, perfil, prestamoId, body, correlacion);
+  }
 
   if (req.method === "POST") {
     let body;
