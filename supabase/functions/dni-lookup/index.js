@@ -40,6 +40,31 @@ function normalizarNombre(texto) {
     .toUpperCase();
 }
 
+// El proveedor real entrega los campos como columnas RENIEC (D_NUDNI, D_PRENOMBRES,
+// ...); el blog documenta alias camelCase (nuDni, preNombres, ...). Se aceptan ambos.
+function primerValor(registro, claves) {
+  for (const clave of claves) {
+    const valor = registro?.[clave];
+    if (valor !== undefined && valor !== null && String(valor).trim() !== "") {
+      return String(valor).trim();
+    }
+  }
+  return "";
+}
+
+// Acepta YYYY-MM-DD (con o sin hora), DD/MM/YYYY y DD-MM-YYYY -> YYYY-MM-DD.
+function normalizarFecha(valor) {
+  const texto = String(valor ?? "").trim();
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const latina = texto.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (latina) {
+    const [, dia, mes, anio] = latina;
+    return `${anio}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
+  }
+  return "";
+}
+
 // Edad en calendario según la fecha actual de Lima (spec §3.1).
 function edadEnLima(fechaNacimiento) {
   const hoyLima = new Intl.DateTimeFormat("en-CA", {
@@ -184,11 +209,9 @@ Deno.serve(async (req) => {
   }
 
   const registro = respuesta.result ?? {};
-  const { nuDni, preNombres, apePaterno, apeMaterno, feNacimiento } = registro;
 
   // CA-04 / RN-03: nuDni coincidente y datos completos; si no, no hay originación.
-  // El proveedor puede devolver nuDni como número o con espacios: se normaliza (solo dígitos).
-  const dniDevuelto = String(nuDni ?? "").trim();
+  const dniDevuelto = primerValor(registro, ["nuDni", "D_NUDNI"]);
   if (dniDevuelto !== dni) {
     return errorResponse(
       "La respuesta del proveedor no coincide con el DNI consultado",
@@ -198,10 +221,12 @@ Deno.serve(async (req) => {
     );
   }
 
-  const nombres = String(preNombres ?? "").trim();
-  const apellidoPaterno = String(apePaterno ?? "").trim();
-  const apellidoMaterno = String(apeMaterno ?? "").trim();
-  const fechaNacimiento = String(feNacimiento ?? "").trim();
+  const nombres = primerValor(registro, ["preNombres", "D_PRENOMBRES"]);
+  const apellidoPaterno = primerValor(registro, ["apePaterno", "D_APEPATERNO"]);
+  const apellidoMaterno = primerValor(registro, ["apeMaterno", "D_APEMATERNO"]);
+  const fechaNacimiento = normalizarFecha(
+    primerValor(registro, ["feNacimiento", "D_FENACIMIENTO"]),
+  );
 
   if (!nombres || !apellidoPaterno || !apellidoMaterno) {
     return errorResponse("Datos incompletos devueltos por el proveedor", 502, "PROVEEDOR_ERROR");
