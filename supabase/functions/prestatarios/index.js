@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
     vacio
       ? { data: [], error: null }
       : admin
-          .from("expdedientes_extrajudicial")
+          .from("expedientes_extrajudicial")
           .select(
             "id, prestamo_id, evento_mora_id, fecha_escalamiento, estado, responsable, accion, resultado, eventos_mora(inicio_mora)",
           )
