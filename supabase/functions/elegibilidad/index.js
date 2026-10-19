@@ -32,15 +32,40 @@ Deno.serve(async (req) => {
   if (errorMonto) return errorResponse(errorMonto, 400, "VALIDATION_ERROR");
 
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("evaluar_elegibilidad", {
-    p_prestatario_id: id,
-    p_monto: monto,
-  });
-  if (error) {
+  const [respuesta, prestamos] = await Promise.all([
+    admin.rpc("evaluar_elegibilidad", {
+      p_prestatario_id: id,
+      p_monto: monto,
+    }),
+    // Desglose por préstamo con sede de origen (CA-26, pantalla HU-04 4.5.2).
+    admin
+      .from("prestamos")
+      .select(
+        "id, estado, capital_insoluto, reserva_capital, creado_en, sucursales(nombre)",
+      )
+      .eq("prestatario_id", id)
+      .in("estado", ["ACTIVO", "PENDIENTE_DESEMBOLSO"])
+      .order("creado_en", { ascending: false }),
+  ]);
+
+  const { data, error } = respuesta;
+  if (error || prestamos.error) {
     return errorResponse("No se pudo evaluar la elegibilidad", 500, "INTERNAL_ERROR");
   }
   if (!data?.existe) {
     return errorResponse("Prestatario no encontrado", 404, "NOT_FOUND");
   }
-  return json({ elegibilidad: data });
+  return json({
+    elegibilidad: {
+      ...data,
+      prestamos: (prestamos.data ?? []).map((p) => ({
+        id: p.id,
+        estado: p.estado,
+        sucursal: p.sucursales?.nombre ?? null,
+        capitalInsoluto: p.capital_insoluto,
+        reservaCapital: p.reserva_capital,
+        creadoEn: p.creado_en,
+      })),
+    },
+  });
 });

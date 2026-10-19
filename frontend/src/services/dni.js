@@ -6,7 +6,8 @@ import { llamarFuncion } from './supabase.js'
 // Contrato:
 //   consultarDni(dni) →
 //     { ok: true,  data: { numeroDni, nombres, apellidos, nombreCompleto,
-//                          fechaNacimiento, edad, estadoFicha, dniVigente } }
+//                          fechaNacimiento, edad, estadoFicha, dniVigente,
+//                          prestatarioId } }
 //     { ok: false, error: { code, message, ...extras } }
 //
 // Códigos de error (backend/Edge Function `dni-lookup` es la autoridad):
@@ -34,7 +35,7 @@ function calcularEdad(fechaNacimiento) {
   return edad
 }
 
-function armarFicha({ numeroDni, nombres, apellidos, fechaNacimiento, estadoFicha }) {
+function armarFicha({ numeroDni, nombres, apellidos, fechaNacimiento, estadoFicha, prestatarioId }) {
   return {
     numeroDni,
     nombres,
@@ -43,6 +44,8 @@ function armarFicha({ numeroDni, nombres, apellidos, fechaNacimiento, estadoFich
     fechaNacimiento,
     edad: calcularEdad(fechaNacimiento),
     estadoFicha,
+    // Id de la ficha global: lo necesita la consulta de cupo (HU-04).
+    prestatarioId: prestatarioId ?? null,
     // B-01: Scrall Básico no entrega caducidad; nunca se afirma vigencia.
     dniVigente: null,
   }
@@ -89,18 +92,21 @@ const ESCENARIOS_MOCK = {
     apellidos: 'Ramírez Salas',
     fechaNacimiento: '1990-04-12',
     estadoFicha: 'NUEVO',
+    prestatarioId: '00000000-0000-4000-8000-000000000001',
   },
   '87654321': {
     nombres: 'María Elena',
     apellidos: 'Quispe Ramos',
     fechaNacimiento: '1985-11-03',
     estadoFicha: 'EXISTENTE',
+    prestatarioId: '00000000-0000-4000-8000-000000000002',
   },
   '00123456': {
     nombres: 'Sin Cero',
     apellidos: 'A La Izquierda',
     fechaNacimiento: '1992-07-20',
     estadoFicha: 'NUEVO',
+    prestatarioId: '00000000-0000-4000-8000-000000000003',
   },
 }
 
@@ -127,6 +133,7 @@ async function consultarMock(dni) {
     apellidos: 'Mock Genérico',
     fechaNacimiento: '1995-01-01',
     estadoFicha: 'NUEVO',
+    prestatarioId: '00000000-0000-4000-8000-000000000099',
   }
   return exito(armarFicha({ numeroDni: dni, ...ficha }))
 }
