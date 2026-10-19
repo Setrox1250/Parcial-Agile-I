@@ -116,7 +116,10 @@ async function procesar(admin, perfil) {
   if (perfil.rol !== 'ADMIN') {
     return errorResponse('Solo un administrador puede reprocesar la mora', 403, 'FORBIDDEN_ROLE')
   }
-  const { data, error } = await admin.rpc('procesar_mora', { p_fecha: null })
+  const { data, error } = await admin.rpc('procesar_mora_con_reintentos', {
+    p_fecha: null,
+    p_max_intentos: 3,
+  })
   if (error || !data?.ok) {
     return errorResponse('No se pudo reprocesar la mora', 500, 'INTERNAL_ERROR')
   }
