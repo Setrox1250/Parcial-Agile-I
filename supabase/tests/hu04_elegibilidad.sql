@@ -11,46 +11,51 @@ BEGIN;
 
 -- ---------------------------------------------------------------------------
 -- Limpieza re-ejecutable de los DNIs de prueba
+-- (HU-03: el detalle DNI vive en personas_naturales)
 -- ---------------------------------------------------------------------------
 DELETE FROM public.expdedientes_extrajudicial
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
-    JOIN public.prestatarios t ON t.id = p.prestatario_id
-    WHERE t.numero_documento IN (
+    JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
+    WHERE pn.dni IN (
         '99999999','88888888','77777777','66666666','55555555',
-        '44444444','33333333','22222222'
+        '44444444','33333333','22222222','10101010'
     )
 );
 DELETE FROM public.eventos_mora
 WHERE prestamo_id IN (
     SELECT p.id FROM public.prestamos p
-    JOIN public.prestatarios t ON t.id = p.prestatario_id
-    WHERE t.numero_documento IN (
+    JOIN public.personas_naturales pn ON pn.prestatario_id = p.prestatario_id
+    WHERE pn.dni IN (
         '99999999','88888888','77777777','66666666','55555555',
-        '44444444','33333333','22222222'
+        '44444444','33333333','22222222','10101010'
     )
 );
 DELETE FROM public.prestamos
 WHERE prestatario_id IN (
-    SELECT id FROM public.prestatarios
-    WHERE numero_documento IN (
+    SELECT pn.prestatario_id FROM public.personas_naturales pn
+    WHERE pn.dni IN (
         '99999999','88888888','77777777','66666666','55555555',
-        '44444444','33333333','22222222'
+        '44444444','33333333','22222222','10101010'
     )
 );
 DELETE FROM public.prestatario_incidencias
 WHERE prestatario_id IN (
-    SELECT id FROM public.prestatarios
-    WHERE numero_documento IN (
+    SELECT pn.prestatario_id FROM public.personas_naturales pn
+    WHERE pn.dni IN (
         '99999999','88888888','77777777','66666666','55555555',
-        '44444444','33333333','22222222'
+        '44444444','33333333','22222222','10101010'
     )
 );
-DELETE FROM public.prestatarios
-WHERE numero_documento IN (
+DELETE FROM public.personas_naturales
+WHERE dni IN (
     '99999999','88888888','77777777','66666666','55555555',
-    '44444444','33333333','22222222'
+    '44444444','33333333','22222222','10101010'
 );
+DELETE FROM public.prestatarios
+WHERE id NOT IN (SELECT prestatario_id FROM public.personas_naturales)
+  AND id NOT IN (SELECT prestatario_id FROM public.empresas)
+  AND id NOT IN (SELECT prestatario_id FROM public.prestamos);
 
 -- ---------------------------------------------------------------------------
 -- Utilidades
@@ -69,12 +74,15 @@ CREATE FUNCTION pg_temp.crear_prestatario(p_dni text) RETURNS uuid
 LANGUAGE plpgsql AS $$
 DECLARE v_id uuid;
 BEGIN
-    INSERT INTO public.prestatarios (
-        tipo_documento, numero_documento, nombres,
-        apellido_paterno, apellido_materno, fecha_nacimiento
+    INSERT INTO public.prestatarios (tipo, estado)
+    VALUES ('PERSONA_NATURAL', 'NUEVO')
+    RETURNING id INTO v_id;
+
+    INSERT INTO public.personas_naturales (
+        prestatario_id, dni, nombres, apellido_paterno, apellido_materno, fecha_nacimiento
     ) VALUES (
-        'DNI', p_dni, 'Prueba', 'Hu04', 'Cupo', DATE '1990-01-01'
-    ) RETURNING id INTO v_id;
+        v_id, p_dni, 'Prueba', 'Hu04', 'Cupo', DATE '1990-01-01'
+    );
     RETURN v_id;
 END;
 $$;
@@ -309,7 +317,7 @@ DO $$
 DECLARE v_p uuid;
 BEGIN
     -- Preactivamos un prestatario real para aislar solo los CHECK.
-    v_p := (SELECT id FROM public.prestatarios WHERE numero_documento = '99999999');
+    v_p := (SELECT pn.prestatario_id FROM public.personas_naturales pn WHERE pn.dni = '99999999');
 
     BEGIN
         INSERT INTO public.prestamos (prestatario_id, sucursal_id, principal, capital_insoluto, reserva_capital, tea, plazo_meses, estado)
@@ -383,6 +391,26 @@ BEGIN
     PERFORM pg_temp.assert(
         (SELECT COUNT(*) FROM public.prestamos WHERE prestatario_id = v_p) = 2,
         'S10: la solicitud rechazada no creó préstamo');
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- S11: estado auditado de la ficha (§5 BLOQUEADO auditado; columna HU-03)
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE v_p uuid; v JSONB;
+BEGIN
+    v_p := pg_temp.crear_prestatario('10101010');
+
+    UPDATE public.prestatarios SET estado = 'BLOQUEADO' WHERE id = v_p;
+    v := public.evaluar_elegibilidad(v_p, 100);
+    PERFORM pg_temp.assert((v->'bloqueos') @> '["BLOQUEADO_AUDITADO"]'::jsonb,
+        'S11: estado BLOQUEADO auditado -> bloqueo');
+    PERFORM pg_temp.assert(NOT (v->>'elegible')::boolean AND v->>'motivo' = 'BLOQUEADO_AUDITADO',
+        'S11: BLOQUEADO auditado impide originar aunque haya cupo');
+
+    UPDATE public.prestatarios SET estado = 'NUEVO' WHERE id = v_p;
+    v := public.evaluar_elegibilidad(v_p, 100);
+    PERFORM pg_temp.assert((v->>'elegible')::boolean, 'S11: volver a NUEVO -> elegible');
 END $$;
 
 COMMIT;

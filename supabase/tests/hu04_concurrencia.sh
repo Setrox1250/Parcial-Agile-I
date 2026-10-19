@@ -13,42 +13,43 @@ fi
 
 PSQL="docker exec -i $CONTENEDOR psql -U postgres -d postgres -tA -v ON_ERROR_STOP=1"
 
-# Limpieza re-ejecutable del prestatario de prueba.
+# Limpieza re-ejecutable del prestatario de prueba (HU-03: DNI en personas_naturales).
 $PSQL <<'SQL'
-DELETE FROM public.expdedientes_extrajudicial
-WHERE prestamo_id IN (
-    SELECT id FROM public.prestamos
-    WHERE prestatario_id IN (
-        SELECT id FROM public.prestatarios WHERE numero_documento = '11111111'
-    )
-);
-DELETE FROM public.eventos_mora
-WHERE prestamo_id IN (
-    SELECT id FROM public.prestamos
-    WHERE prestatario_id IN (
-        SELECT id FROM public.prestatarios WHERE numero_documento = '11111111'
-    )
-);
-DELETE FROM public.prestamos
-WHERE prestatario_id IN (
-    SELECT id FROM public.prestatarios WHERE numero_documento = '11111111'
-);
-DELETE FROM public.prestatarios WHERE numero_documento = '11111111';
+DO $$
+DECLARE v_id uuid;
+BEGIN
+    SELECT prestatario_id INTO v_id
+    FROM public.personas_naturales WHERE dni = '11111111';
+
+    IF v_id IS NOT NULL THEN
+        DELETE FROM public.expdedientes_extrajudicial
+        WHERE prestamo_id IN (SELECT id FROM public.prestamos WHERE prestatario_id = v_id);
+        DELETE FROM public.eventos_mora
+        WHERE prestamo_id IN (SELECT id FROM public.prestamos WHERE prestatario_id = v_id);
+        DELETE FROM public.prestamos WHERE prestatario_id = v_id;
+        DELETE FROM public.prestatario_incidencias WHERE prestatario_id = v_id;
+        DELETE FROM public.personas_naturales WHERE prestatario_id = v_id;
+        DELETE FROM public.prestatarios WHERE id = v_id;
+    END IF;
+END $$;
 SQL
 
 read -r PRESTATARIO_ID SUC_TRU SUC_PIU <<EOF
 $($PSQL <<'SQL'
 WITH p AS (
-    INSERT INTO public.prestatarios (
-        tipo_documento, numero_documento, nombres,
-        apellido_paterno, apellido_materno, fecha_nacimiento
-    ) VALUES (
-        'DNI', '11111111', 'Concurrencia', 'CP', 'Dieciseis', DATE '1990-01-01'
-    )
+    INSERT INTO public.prestatarios (tipo, estado)
+    VALUES ('PERSONA_NATURAL', 'NUEVO')
     RETURNING id
+), pn AS (
+    INSERT INTO public.personas_naturales (
+        prestatario_id, dni, nombres, apellido_paterno, apellido_materno, fecha_nacimiento
+    )
+    SELECT p.id, '11111111', 'Concurrencia', 'CP', 'Dieciseis', DATE '1990-01-01'
+    FROM p
+    RETURNING prestatario_id
 )
-SELECT concat_ws(' ', p.id, t.id, u.id)
-FROM p
+SELECT concat_ws(' ', pn.prestatario_id, t.id, u.id)
+FROM pn
 CROSS JOIN (SELECT id FROM public.sucursales WHERE codigo = 'TRU') t
 CROSS JOIN (SELECT id FROM public.sucursales WHERE codigo = 'PIU') u;
 SQL
