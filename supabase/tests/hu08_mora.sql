@@ -181,7 +181,7 @@ END $$;
 DO $$
 DECLARE v jsonb; v_ejecucion uuid;
 BEGIN
-    v := public.procesar_mora_con_reintentos(DATE '2026-01-11', 3);
+    v := public.procesar_mora_con_reintentos(DATE '2026-01-11', 3::smallint);
     v_ejecucion := (v->>'ejecucion_id')::uuid;
     PERFORM pg_temp.assert((v->>'ok')::boolean AND (v->>'intentos')::integer = 1,
         'S5: proceso de mora exitoso queda registrado en el primer intento');
