@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Tarjeta from '../../components/ui/Tarjeta.jsx'
 import Alerta from '../../components/ui/Alerta.jsx'
 import Boton from '../../components/ui/Boton.jsx'
 import Spinner from '../../components/ui/Spinner.jsx'
+import TablaDatos from '../../components/ui/TablaDatos.jsx'
 import PrestamoForm from '../../components/prestamo/PrestamoForm.jsx'
 import { listarPrestatarios, obtenerHistorial } from '../../services/consulta.js'
 import { estadoCuota as estadoCuotaDerivado } from '../../utils/cobranza.js'
@@ -38,6 +39,20 @@ function badgeCuota(estado) {
   return 'muted'
 }
 
+const ESTADOS_PRESTAMO = {
+  ACTIVO: { badge: 'ok', texto: 'Activo', detalle: 'Tiene saldo pendiente y permite registrar cobros.' },
+  PAGADO: { badge: 'ok', texto: 'Pagado', detalle: 'El préstamo ya no tiene saldo pendiente.' },
+  ANULADO_SIN_DESEMBOLSO: { badge: 'error', texto: 'Anulado sin desembolso', detalle: 'No se desembolsó el préstamo; no corresponde registrar cobros.' },
+}
+
+function estadoPrestamo(estado) {
+  return ESTADOS_PRESTAMO[estado] ?? {
+    badge: 'muted',
+    texto: estado ?? 'Sin estado',
+    detalle: 'Este estado no permite registrar cobros desde el expediente.',
+  }
+}
+
 function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
   const { sucursal, principal, plazoMeses, tea, fechaOriginacion, estado, desembolso } = prestamo
   const cuotas = prestamo.cuotas ?? []
@@ -46,6 +61,7 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
   const totalProgramado = cuotas.reduce((total, cuota) => total + Number(cuota.totalProgramado ?? 0), 0)
   const saldoPendiente = cuotas.reduce((total, c) => total + Number(c.saldo), 0)
   const cobrable = estado === 'ACTIVO' && saldoPendiente > 0.005
+  const estadoActual = estadoPrestamo(estado)
 
   return (
     <>
@@ -56,7 +72,11 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
         <td>{plazoMeses} m</td>
         <td>{(Number(tea) * 100).toFixed(2)} %</td>
         <td>{String(fechaOriginacion ?? '').slice(0, 10)}</td>
-        <td>{estado}</td>
+        <td>
+          <span className={`consulta-badge consulta-badge--${estadoActual.badge}`} title={estadoActual.detalle}>
+            {estadoActual.texto}
+          </span>
+        </td>
         <td>{soles(saldoPendiente)}</td>
       </tr>
       {expandido && (
@@ -75,6 +95,11 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
                   Registrar cobro
                 </Boton>
               )}
+            </div>
+            <div className={`consulta-estado-prestamo consulta-estado-prestamo--${estadoActual.badge}`}>
+              <span>Estado del préstamo</span>
+              <strong>{estadoActual.texto}</strong>
+              <small>{cobrable ? 'Cobro habilitado mientras exista saldo pendiente.' : estadoActual.detalle}</small>
             </div>
             {cuotas.length > 0 && (
               <div className="consulta-interes-resumen" aria-label="Resumen de intereses del préstamo">
@@ -161,7 +186,7 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
 
 export default function ConsultaPage() {
   const navegar = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const filtroURL = searchParams.get('q') ?? searchParams.get('dni') ?? searchParams.get('ruc') ?? ''
   const filtro = filtroURL
   const [prestatarios, setPrestatarios] = useState([])
@@ -186,25 +211,6 @@ export default function ConsultaPage() {
     cargar()
     return () => { vigente = false }
   }, [])
-
-  const filtrados = useMemo(() => {
-    const termino = filtro.trim().toLocaleLowerCase('es-PE')
-    if (!termino) return prestatarios
-    return prestatarios.filter((p) =>
-      `${nombreCompleto(p)} ${documentoDe(p)} ${p.tipo} ${p.estadoFicha}`
-        .toLocaleLowerCase('es-PE')
-        .includes(termino),
-    )
-  }, [filtro, prestatarios])
-
-  function cambiarFiltro(valor) {
-    const parametros = new URLSearchParams(searchParams)
-    parametros.delete('dni')
-    parametros.delete('ruc')
-    if (valor) parametros.set('q', valor)
-    else parametros.delete('q')
-    setSearchParams(parametros, { replace: true })
-  }
 
   async function abrirPrestatario(prestatario, modo) {
     const idSolicitud = ++solicitud.current
@@ -268,40 +274,25 @@ export default function ConsultaPage() {
 
       {error && <Alerta tipo="error">{error.message}</Alerta>}
 
-      {!seleccion && <Tarjeta
-        className="consulta-directorio"
-        titulo={`Expedientes registrados (${filtrados.length})`}
-        accion={(
-          <div className="consulta-filtro">
-            <label htmlFor="filtro-prestatarios">Buscar por nombre o documento</label>
-            <input
-              id="filtro-prestatarios"
-              type="search"
-              placeholder="Nombre, DNI o RUC"
-              value={filtro}
-              onChange={(e) => cambiarFiltro(e.target.value)}
-            />
-          </div>
-        )}
-      >
+      {!seleccion && <Tarjeta className="consulta-directorio" titulo={`Expedientes registrados (${prestatarios.length})`}>
         {cargando ? (
           <p className="consulta-cargando"><Spinner /> Cargando directorio de clientes...</p>
-        ) : filtrados.length === 0 ? (
-          <p className="consulta-vacio">{prestatarios.length ? 'No hay clientes que coincidan con el filtro.' : 'Aun no hay prestatarios registrados.'}</p>
+        ) : prestatarios.length === 0 ? (
+          <p className="consulta-vacio">Aun no hay prestatarios registrados.</p>
         ) : (
-          <div className="consulta-tabla-envoltura">
-            <table className="consulta-tabla consulta-tabla-directorio">
-              <thead>
-                <tr>
-                  <th scope="col">Cliente</th>
-                  <th scope="col">Documento</th>
-                  <th scope="col">Tipo</th>
-                  <th scope="col">Estado</th>
-                  <th scope="col">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.map((p) => (
+          <TablaDatos
+            filas={prestatarios}
+            busquedaInicial={filtro}
+            columnas={['Cliente', 'Documento', 'Tipo', 'Estado', 'Acciones']}
+            clave={(p) => p.id}
+            buscarEn={(p) => `${nombreCompleto(p)} ${documentoDe(p)} ${p.tipo} ${p.estadoFicha}`}
+            filtros={[
+              { id: 'tipo', etiqueta: 'Tipo', opciones: [{ valor: 'EMPRESA', etiqueta: 'Empresa' }, { valor: 'PERSONA_NATURAL', etiqueta: 'Persona natural' }], coincide: (p, valor) => p.tipo === valor },
+              { id: 'estado', etiqueta: 'Estado', opciones: [...new Set(prestatarios.map((p) => p.estadoFicha).filter(Boolean))].map((valor) => ({ valor, etiqueta: valor })), coincide: (p, valor) => p.estadoFicha === valor },
+            ]}
+            className="consulta-tabla consulta-tabla-directorio"
+            textoVacio="No hay clientes que coincidan con el filtro."
+            renderFila={(p) => (
                   <tr key={p.id}>
                     <td><strong>{nombreCompleto(p)}</strong></td>
                     <td>{documentoDe(p)}</td>
@@ -323,10 +314,8 @@ export default function ConsultaPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+            )}
+          />
         )}
       </Tarjeta>}
 

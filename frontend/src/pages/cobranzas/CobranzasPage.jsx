@@ -87,6 +87,18 @@ export default function CobranzasPage({ registro = false }) {
     })
   }
 
+  if (registro && cargando) {
+    return (
+      <section className="pagina registro-cobro">
+        <header className="pagina-cabecera">
+          <p className="modulo-eyebrow">OPERACIÓN DE CARTERA</p>
+          <h1>Registrar cobro</h1>
+          <p>Cargando los préstamos activos…</p>
+        </header>
+      </section>
+    )
+  }
+
   if (registro) {
     return (
       <RegistrarCobro

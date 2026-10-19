@@ -181,7 +181,7 @@ export default function DesembolsosPage() {
                         disabled={ocupado || (form.metodo === 'TRANSFERENCIA' && !form.referencia.trim())}
                       >
                         {ocupado ? 'Procesando…' : 'Confirmar desembolso'}
-                      </button>{' '}
+                      </button>
                       <button
                         type="button"
                         className="btn btn-secundario"
@@ -190,6 +190,7 @@ export default function DesembolsosPage() {
                       >
                         Anular
                       </button>
+                      </div>
                     </td>
                   </tr>
                 )

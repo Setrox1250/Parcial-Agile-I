@@ -206,7 +206,7 @@ export default function RegistrarCobro({ prestamos, prestamoInicial, onRegistrad
 
         {paso === 'datos' && (
           <form id="form-cobro" className="formulario" onSubmit={revisar} noValidate>
-            {!prestamoInicial && (
+            {!inicial && (
               <label>
                 Préstamo a cobrar
                 <select value={prestamoId} onChange={cambiarPrestamo} required>
