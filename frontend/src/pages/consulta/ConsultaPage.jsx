@@ -39,6 +39,20 @@ function badgeCuota(estado) {
   return 'muted'
 }
 
+const ESTADOS_PRESTAMO = {
+  ACTIVO: { badge: 'ok', texto: 'Activo', detalle: 'Tiene saldo pendiente y permite registrar cobros.' },
+  PAGADO: { badge: 'ok', texto: 'Pagado', detalle: 'El préstamo ya no tiene saldo pendiente.' },
+  ANULADO_SIN_DESEMBOLSO: { badge: 'error', texto: 'Anulado sin desembolso', detalle: 'No se desembolsó el préstamo; no corresponde registrar cobros.' },
+}
+
+function estadoPrestamo(estado) {
+  return ESTADOS_PRESTAMO[estado] ?? {
+    badge: 'muted',
+    texto: estado ?? 'Sin estado',
+    detalle: 'Este estado no permite registrar cobros desde el expediente.',
+  }
+}
+
 function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
   const { sucursal, principal, plazoMeses, tea, fechaOriginacion, estado, desembolso } = prestamo
   const cuotas = prestamo.cuotas ?? []
@@ -47,6 +61,7 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
   const totalProgramado = cuotas.reduce((total, cuota) => total + Number(cuota.totalProgramado ?? 0), 0)
   const saldoPendiente = cuotas.reduce((total, c) => total + Number(c.saldo), 0)
   const cobrable = estado === 'ACTIVO' && saldoPendiente > 0.005
+  const estadoActual = estadoPrestamo(estado)
 
   return (
     <>
@@ -57,7 +72,11 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
         <td>{plazoMeses} m</td>
         <td>{(Number(tea) * 100).toFixed(2)} %</td>
         <td>{String(fechaOriginacion ?? '').slice(0, 10)}</td>
-        <td>{estado}</td>
+        <td>
+          <span className={`consulta-badge consulta-badge--${estadoActual.badge}`} title={estadoActual.detalle}>
+            {estadoActual.texto}
+          </span>
+        </td>
         <td>{soles(saldoPendiente)}</td>
       </tr>
       {expandido && (
@@ -76,6 +95,11 @@ function PrestamoFila({ prestamo, expandido, onAlternar, onCobrar }) {
                   Registrar cobro
                 </Boton>
               )}
+            </div>
+            <div className={`consulta-estado-prestamo consulta-estado-prestamo--${estadoActual.badge}`}>
+              <span>Estado del préstamo</span>
+              <strong>{estadoActual.texto}</strong>
+              <small>{cobrable ? 'Cobro habilitado mientras exista saldo pendiente.' : estadoActual.detalle}</small>
             </div>
             {cuotas.length > 0 && (
               <div className="consulta-interes-resumen" aria-label="Resumen de intereses del préstamo">

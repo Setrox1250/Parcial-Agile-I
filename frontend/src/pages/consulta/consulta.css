@@ -248,6 +248,24 @@
   padding: 14px;
 }
 
+.consulta-estado-prestamo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border: 1px solid #d7e8eb;
+  border-radius: 8px;
+  background: #f4fafb;
+  color: #536779;
+  font-size: 0.82rem;
+}
+
+.consulta-estado-prestamo strong { color: #176b73; }
+.consulta-estado-prestamo small { color: #64748b; }
+.consulta-estado-prestamo--error { border-color: #f2c8c0; background: #fff5f2; }
+.consulta-estado-prestamo--error strong { color: #a74737; }
+
 .consulta-cronograma {
   margin-bottom: 12px;
 }
