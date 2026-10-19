@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import CampoTexto from '../ui/CampoTexto.jsx'
 import Boton from '../ui/Boton.jsx'
 import Alerta from '../ui/Alerta.jsx'
+import Dialogo from '../ui/Dialogo.jsx'
 import VistaCronograma from './VistaCronograma.jsx'
 import { previewCronograma, originarPrestamo } from '../../services/prestamos.js'
 import { supabase } from '../../services/supabase.js'
@@ -9,12 +10,20 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { hoyLocal } from '../../utils/dinero.js'
 import './prestamo.css'
 
-// Formulario de originación (HU-05 5.4): monto PEN, plazo 1..60, fecha de
-// originación y TEA 30 % fija de solo lectura. ADMIN elige sucursal (RN-30).
+const PASOS = [
+  { titulo: 'Condiciones', descripcion: 'Monto, plazo y fecha' },
+  { titulo: 'Cronograma', descripcion: 'Revisar y confirmar' },
+]
+
+// Formulario de originación (HU-05 5.4) en dos pasos: condiciones y
+// confirmación del cronograma, con retorno al paso anterior y un único botón
+// de confirmación. Monto PEN, plazo 1..60, fecha de hoy y TEA 30 % fija.
+// ADMIN elige sucursal (RN-30).
 export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
   const { usuario } = useAuth()
   const esAdmin = usuario?.rol === 'ADMIN'
 
+  const [paso, setPaso] = useState('datos')
   const [monto, setMonto] = useState('')
   const [plazo, setPlazo] = useState('')
   const [fecha, setFecha] = useState(hoyLocal())
@@ -24,7 +33,7 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
   const [preview, setPreview] = useState(null)
   const [cargandoPreview, setCargandoPreview] = useState(false)
   const [cargandoConfirmacion, setCargandoConfirmacion] = useState(false)
-  const [resultado, setResultado] = useState(null)
+  const [dialogo, setDialogo] = useState(null)
 
   // Catálogo de sedes ACTIVAS solo para ADMIN (patrón Usuarios.jsx).
   useEffect(() => {
@@ -45,7 +54,6 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
 
   function invalidarPreview() {
     setPreview(null)
-    setResultado(null)
   }
 
   function validarCliente() {
@@ -84,7 +92,6 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
     if (!validarCliente()) return
 
     setCargandoPreview(true)
-    setResultado(null)
     const respuesta = await previewCronograma({
       monto: Number(monto),
       plazoMeses: Number(plazo),
@@ -97,6 +104,7 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
     }
     setErrores({})
     setPreview(respuesta.data)
+    setPaso('cronograma')
   }
 
   async function manejarConfirmacion() {
@@ -110,122 +118,177 @@ export default function PrestamoForm({ prestatarioId, onOrigenExitoso }) {
         sucursalId: esAdmin ? sucursalId : undefined,
         idempotencyKey: crypto.randomUUID(),
       })
-      setResultado(respuesta)
-      if (respuesta.ok) onOrigenExitoso?.()
+      if (!respuesta.ok) {
+        setDialogo({
+          tipo: 'advertencia',
+          titulo: 'No se pudo originar el préstamo',
+          mensaje: respuesta.error.message,
+        })
+        return
+      }
+      const prestamo = respuesta.data?.prestamo
+      setDialogo({
+        tipo: 'informacion',
+        titulo: 'Préstamo originado',
+        mensaje: respuesta.data?.idempotente
+          ? 'Este préstamo ya había sido registrado con la misma clave (idempotente).'
+          : prestamo
+            ? `Se originó un préstamo por ${prestamo.principal} en ${prestamo.plazoMeses} cuotas (estado ${prestamo.estado}).`
+            : 'El préstamo se originó correctamente.',
+      })
+      onOrigenExitoso?.()
     } catch (error) {
-      setResultado({
-        ok: false,
-        error: {
-          message: error?.message ?? 'No se pudo registrar el préstamo. Intente nuevamente.',
-        },
+      setDialogo({
+        tipo: 'advertencia',
+        titulo: 'No se pudo originar el préstamo',
+        mensaje: error?.message ?? 'Ocurrió un error inesperado. Intente nuevamente.',
       })
     } finally {
       setCargandoConfirmacion(false)
     }
   }
 
+  function reiniciar() {
+    setDialogo(null)
+    setMonto('')
+    setPlazo('')
+    setPreview(null)
+    setErrores({})
+    setPaso('datos')
+  }
+
+  const bloqueado = cargandoPreview || cargandoConfirmacion
+
   return (
-    <form className="prestamo-form" onSubmit={manejarPreview} noValidate>
-      <CampoTexto
-        id="monto"
-        etiqueta="Monto solicitado (PEN)"
-        type="number"
-        inputMode="decimal"
-        step="0.01"
-        min="0.01"
-        max="10000"
-        placeholder="0.00"
-        value={monto}
-        onChange={(e) => {
-          setMonto(e.target.value)
-          invalidarPreview()
-        }}
-        disabled={cargandoPreview || cargandoConfirmacion}
-        error={errores.monto}
-        hint="Principal > 0 sin mínimo comercial; máximo S/ 10000.00 (cupo global)."
-      />
+    <div className="prestamo-form">
+      <ol className="flujo-credito" aria-label="Progreso de la originación">
+        {PASOS.map((p, i) => {
+          const actual = (paso === 'datos' && i === 0) || (paso === 'cronograma' && i === 1)
+          const hecho = paso === 'cronograma' && i === 0
+          const estado = hecho ? 'completado' : actual ? 'actual' : 'pendiente'
+          return (
+            <li className={`flujo-credito-paso flujo-credito-paso--${estado}`} key={p.titulo}>
+              <span className="flujo-credito-indice" aria-hidden="true">{hecho ? '✓' : i + 1}</span>
+              <span><strong>{p.titulo}</strong><small>{p.descripcion}</small></span>
+            </li>
+          )
+        })}
+      </ol>
 
-      <CampoTexto
-        id="plazo"
-        etiqueta="Plazo (meses)"
-        type="number"
-        inputMode="numeric"
-        min="1"
-        max="60"
-        placeholder="12"
-        value={plazo}
-        onChange={(e) => {
-          setPlazo(e.target.value)
-          invalidarPreview()
-        }}
-        disabled={cargandoPreview || cargandoConfirmacion}
-        error={errores.plazo}
-        hint="Entre 1 y 60 cuotas mensuales."
-      />
-
-      <CampoTexto
-        id="fecha"
-        etiqueta="Fecha de originación"
-        type="date"
-        min={hoyLocal()}
-        max={hoyLocal()}
-        value={fecha}
-        onChange={(e) => {
-          setFecha(e.target.value)
-          invalidarPreview()
-        }}
-        disabled={cargandoPreview || cargandoConfirmacion}
-        error={errores.fecha}
-        hint="Debe ser la fecha de hoy; el primer vencimiento se calcula +1 mes calendario."
-      />
-
-      {esAdmin && (
-        <div className={`campo${errores.sucursal ? ' campo--error' : ''}`}>
-          <label htmlFor="sucursal">Sucursal de origen</label>
-          <select
-            id="sucursal"
-            value={sucursalId}
+      {paso === 'datos' && (
+        <form className="prestamo-form-paso" onSubmit={manejarPreview} noValidate>
+          <CampoTexto
+            id="monto"
+            etiqueta="Monto solicitado (PEN)"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0.01"
+            max="10000"
+            placeholder="0.00"
+            value={monto}
             onChange={(e) => {
-              setSucursalId(e.target.value)
+              setMonto(e.target.value)
               invalidarPreview()
             }}
-            disabled={cargandoPreview || cargandoConfirmacion}
-          >
-            <option value="">Seleccione una sucursal…</option>
-            {sucursales.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nombre} ({s.codigo})
-              </option>
-            ))}
-          </select>
-          {errores.sucursal && (
-            <small className="campo-mensaje campo-mensaje--error">{errores.sucursal}</small>
+            disabled={bloqueado}
+            error={errores.monto}
+            hint="Principal > 0 sin mínimo comercial; máximo S/ 10000.00 (cupo global)."
+          />
+
+          <CampoTexto
+            id="plazo"
+            etiqueta="Plazo (meses)"
+            type="number"
+            inputMode="numeric"
+            min="1"
+            max="60"
+            placeholder="12"
+            value={plazo}
+            onChange={(e) => {
+              setPlazo(e.target.value)
+              invalidarPreview()
+            }}
+            disabled={bloqueado}
+            error={errores.plazo}
+            hint="Entre 1 y 60 cuotas mensuales."
+          />
+
+          <CampoTexto
+            id="fecha"
+            etiqueta="Fecha de originación"
+            type="date"
+            min={hoyLocal()}
+            max={hoyLocal()}
+            value={fecha}
+            onChange={(e) => {
+              setFecha(e.target.value)
+              invalidarPreview()
+            }}
+            disabled={bloqueado}
+            error={errores.fecha}
+            hint="Debe ser la fecha de hoy; el primer vencimiento se calcula +1 mes calendario."
+          />
+
+          {esAdmin && (
+            <div className={`campo${errores.sucursal ? ' campo--error' : ''}`}>
+              <label htmlFor="sucursal">Sucursal de origen</label>
+              <select
+                id="sucursal"
+                value={sucursalId}
+                onChange={(e) => {
+                  setSucursalId(e.target.value)
+                  invalidarPreview()
+                }}
+                disabled={bloqueado}
+              >
+                <option value="">Seleccione una sucursal…</option>
+                {sucursales.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre} ({s.codigo})
+                  </option>
+                ))}
+              </select>
+              {errores.sucursal && (
+                <small className="campo-mensaje campo-mensaje--error">{errores.sucursal}</small>
+              )}
+            </div>
           )}
-        </div>
+
+          <div className="prestamo-tea">
+            <span>Tasa de interés anual (TEA)</span>
+            <strong>30.00 % — fija e inmutable</strong>
+          </div>
+
+          {errores.preview && <Alerta tipo="error">{errores.preview}</Alerta>}
+
+          <div className="prestamo-acciones">
+            <Boton type="submit" cargando={cargandoPreview}>
+              {cargandoPreview ? 'Calculando…' : 'Ver cronograma'}
+            </Boton>
+          </div>
+        </form>
       )}
 
-      <div className="prestamo-tea">
-        <span>Tasa de interés anual (TEA)</span>
-        <strong>30.00 % — fija e inmutable</strong>
-      </div>
-
-      {errores.preview && <Alerta tipo="error">{errores.preview}</Alerta>}
-
-      <div className="prestamo-acciones">
-        <Boton type="submit" cargando={cargandoPreview} disabled={cargandoConfirmacion}>
-          {cargandoPreview ? 'Calculando…' : 'Ver cronograma'}
-        </Boton>
-      </div>
-
-      {preview && (
+      {paso === 'cronograma' && preview && (
         <VistaCronograma
           cuotas={preview.cuotas}
           totalAPagar={preview.totalAPagar}
           onConfirmar={manejarConfirmacion}
+          onVolver={() => setPaso('datos')}
           cargandoConfirmacion={cargandoConfirmacion}
-          resultado={resultado}
         />
       )}
-    </form>
+
+      {dialogo && (
+        <Dialogo
+          tipo={dialogo.tipo}
+          titulo={dialogo.titulo}
+          mensaje={dialogo.mensaje}
+          onAceptar={dialogo.tipo === 'informacion' ? reiniciar : () => setDialogo(null)}
+          onCancelar={() => setDialogo(null)}
+        />
+      )}
+    </div>
   )
 }
