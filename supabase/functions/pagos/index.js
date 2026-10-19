@@ -215,7 +215,7 @@ async function registrar(admin, perfil, body) {
 }
 
 async function verificar(admin, perfil, pagoId, body) {
-  const { accion, error } = parseVerificacion(body);
+  const { accion, motivo, error } = parseVerificacion(body);
   if (error) return errorResponse(error, 400, "VALIDATION_ERROR");
 
   const { data: pago, error: errorLectura } = await admin
@@ -228,6 +228,18 @@ async function verificar(admin, perfil, pagoId, body) {
 
   const errorSucursal = assertSucursalPropia(perfil, pago.prestamos?.sucursal_id);
   if (errorSucursal) return errorSucursal;
+
+  if (accion === "REVERSAR") {
+    if (perfil.rol !== "ADMIN") {
+      return errorResponse("Solo ADMIN puede reversar un pago", 403, "FORBIDDEN_ROLE");
+    }
+    const { data, error: rpcError } = await admin.rpc("revertir_pago_confirmado", {
+      p_pago_id: pagoId, p_motivo: motivo, p_actor: perfil.auth_user_id,
+    });
+    if (rpcError || !data) return errorResponse("No se pudo reversar el cobro", 500, "INTERNAL_ERROR");
+    if (!data.ok) return errorResponse("No se puede reversar este pago", 409, data.motivo ?? "REVERSO_INVALIDO");
+    return detalle(admin, perfil, pagoId);
+  }
 
   const { data, error: rpcError } = await admin.rpc("verificar_pago", {
     p_pago_id: pagoId,
