@@ -1,5 +1,27 @@
 /* HU-09: consulta global y ficha consolidada (solo lectura) */
 
+.contenido > section.consulta {
+  width: 100%;
+  max-width: 1680px;
+}
+
+.consulta-directorio {
+  overflow: visible;
+}
+
+.consulta-directorio .tarjeta-cabecera {
+  position: sticky;
+  top: 76px;
+  z-index: 9;
+  min-height: 82px;
+  background: #fff;
+  box-shadow: 0 5px 12px rgba(22, 42, 58, 0.06);
+}
+
+.consulta-directorio .tarjeta-cabecera h2 {
+  flex: 0 0 auto;
+}
+
 .consulta-buscador {
   display: flex;
   align-items: flex-end;
@@ -14,9 +36,8 @@
 .consulta-filtro {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: min(100%, 460px);
-  margin-bottom: 16px;
+  gap: 4px;
+  width: min(100%, 520px);
 }
 
 .consulta-filtro label {
@@ -26,8 +47,9 @@
 }
 
 .consulta-filtro input {
-  min-height: 42px;
-  padding: 9px 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   color: #0f172a;
@@ -116,7 +138,41 @@
 }
 
 .consulta-tabla-directorio {
-  min-width: 780px;
+  min-width: 900px;
+  font-size: 0.96rem;
+}
+
+.consulta-directorio .consulta-tabla-envoltura {
+  max-height: min(68vh, 760px);
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.consulta-tabla-directorio thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+}
+
+.consulta-tabla-directorio th,
+.consulta-tabla-directorio td {
+  padding: 13px 16px;
+}
+
+.consulta-tabla-directorio tbody tr:hover {
+  background: #f8fbfd;
+}
+
+.consulta-tabla-directorio th:nth-child(1) { width: 30%; }
+.consulta-tabla-directorio th:nth-child(2) { width: 16%; }
+.consulta-tabla-directorio th:nth-child(3) { width: 16%; }
+.consulta-tabla-directorio th:nth-child(4) { width: 14%; }
+.consulta-tabla-directorio th:nth-child(5) { width: 24%; }
+
+.consulta-directorio .tarjeta-cuerpo {
+  gap: 0;
 }
 
 .consulta-acciones-fila {
@@ -127,6 +183,25 @@
 
 .consulta-acciones-fila .boton {
   white-space: nowrap;
+  min-height: 38px;
+  padding-inline: 13px;
+}
+
+@media (max-width: 760px) {
+  .consulta-directorio .tarjeta-cabecera {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .consulta-directorio .tarjeta-accion,
+  .consulta-filtro {
+    width: 100%;
+  }
+
+  .consulta-directorio .consulta-tabla-envoltura {
+    max-height: none;
+  }
 }
 
 .consulta-tabla,

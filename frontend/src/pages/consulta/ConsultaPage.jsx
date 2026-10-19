@@ -104,18 +104,22 @@ export default function ConsultaPage() {
 
       {error && <Alerta tipo="error">{error.message}</Alerta>}
 
-      <Tarjeta titulo={`Directorio de prestatarios (${filtrados.length})`}>
-
-        <div className="consulta-filtro">
-          <label htmlFor="filtro-prestatarios">Buscar en clientes</label>
-          <input
-            id="filtro-prestatarios"
-            type="search"
-            placeholder="Nombre, DNI o RUC"
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-          />
-        </div>
+      <Tarjeta
+        className="consulta-directorio"
+        titulo={`Directorio de prestatarios (${filtrados.length})`}
+        accion={(
+          <div className="consulta-filtro">
+            <label htmlFor="filtro-prestatarios">Buscar por nombre o documento</label>
+            <input
+              id="filtro-prestatarios"
+              type="search"
+              placeholder="Nombre, DNI o RUC"
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+            />
+          </div>
+        )}
+      >
         {cargando ? (
           <p className="consulta-cargando"><Spinner /> Cargando directorio de clientes...</p>
         ) : filtrados.length === 0 ? (
