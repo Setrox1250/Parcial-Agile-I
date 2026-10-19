@@ -203,6 +203,11 @@ BEGIN
         );
     END;
 
+    -- Si fue efectivo, se confirma al registrar y debe imputarse inmediatamente (RN-11)
+    IF v_estado = 'CONFIRMADO' THEN
+        PERFORM public.imputar_pago_confirmado(v_pago_id);
+    END IF;
+
     RETURN jsonb_build_object(
         'ok', true, 'idempotente', false,
         'pago_id', v_pago_id, 'estado', v_estado, 'motivo', NULL
@@ -268,6 +273,10 @@ BEGIN
         confirmado_en = now()
     WHERE id = p_pago_id;
 
+    IF v_estado = 'CONFIRMADO' THEN
+        PERFORM public.imputar_pago_confirmado(p_pago_id);
+    END IF;
+
     RETURN jsonb_build_object(
         'ok', true, 'pago_id', v_pago_id, 'estado', v_estado, 'motivo', NULL
     );
@@ -296,3 +305,121 @@ ALTER TABLE public.pagos ENABLE ROW LEVEL SECURITY;
 -- anon/authenticated: además de la RLS, se les retira el privilegio de
 -- tabla (RN-33: el histórico de cobros no se escribe ni se borra por SQL).
 REVOKE ALL ON public.pagos FROM anon, authenticated;
+
+-- 4) Imputa un pago CONFIRMADO a cuotas (para efectivo inmediato) o tras
+--    verificación (para transferencia). Usa FOR UPDATE sobre cuotas para
+--    serializar concurrencia (RN-31). No recalcula intereses (RN-24/RN-41).
+CREATE OR REPLACE FUNCTION public.imputar_pago_confirmado(
+    p_pago_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_pago public.pagos%ROWTYPE;
+    v_prestamo_id UUID;
+    v_monto NUMERIC(12,2);
+    v_dist JSONB;
+    d RECORD;
+    v_cuota public.cuotas%ROWTYPE;
+    v_cap_insoluto NUMERIC(12,2);
+    v_cap_antes NUMERIC(12,2);
+    v_quedan_impagas INT;
+    v_total_cuotas INT;
+    v_cap_lib NUMERIC(12,2) := 0;
+    r_c RECORD;
+BEGIN
+    SELECT * INTO v_pago FROM public.pagos WHERE id = p_pago_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('ok', false, 'motivo', 'PAGO_INEXISTENTE');
+    END IF;
+    IF v_pago.estado <> 'CONFIRMADO' THEN
+        RETURN jsonb_build_object('ok', false, 'motivo', 'PAGO_NO_CONFIRMADO');
+    END IF;
+    IF v_pago.imputado_en IS NOT NULL THEN
+        RETURN jsonb_build_object('ok', true, 'idempotente', true, 'motivo', 'YA_IMPUTADO');
+    END IF;
+
+    v_prestamo_id := v_pago.prestamo_id;
+    v_monto := v_pago.monto;
+
+    -- Distribución con FOR UPDATE de cuotas para evitar carreras
+    SELECT * INTO v_dist FROM public.distribuir_pago(v_prestamo_id, v_monto);
+    IF NOT (v_dist->>'ok')::boolean THEN
+        RETURN jsonb_build_object('ok', false, 'motivo', v_dist->>'motivo', 'detalle', v_dist->>'detalle');
+    END IF;
+
+    -- Bloquear cuotas afectadas
+    FOR d IN SELECT (jsonb_array_elements(v_dist->'detalle'))->>'cuota_id' AS cuota_id
+    LOOP
+        PERFORM 1 FROM public.cuotas WHERE id = d.cuota_id FOR UPDATE;
+    END LOOP;
+
+    -- Ejecutar imputaciones
+    FOR d IN SELECT * FROM jsonb_to_recordset(v_dist->'detalle') AS x(
+        cuota_id UUID, importe_capital NUMERIC(12,2), importe_interes NUMERIC(12,2)
+    )
+    LOOP
+        INSERT INTO public.pagos_imputaciones (pago_id, cuota_id, importe_capital, importe_interes)
+        VALUES (p_pago_id, d.cuota_id, d.importe_capital, d.importe_interes)
+        ON CONFLICT DO NOTHING;
+    END LOOP;
+
+    -- Actualizar cuotas: estado PARCIAL/PAGADA según saldo
+    FOR r_c IN
+        SELECT c.id, c.capital_programado, c.interes_programado,
+               COALESCE(t.total_capital, 0) AS imp_cap,
+               COALESCE(t.total_interes, 0) AS imp_int,
+               (c.capital_programado - COALESCE(t.total_capital, 0)) AS saldo_cap,
+               (c.total_programado - COALESCE(t.total_abonado, 0)) AS saldo_total
+        FROM public.cuotas c
+        LEFT JOIN public.cuotas_totales_imputados t ON t.cuota_id = c.id
+        WHERE c.prestamo_id = v_prestamo_id
+    LOOP
+        IF r_c.saldo_total <= 0.005 THEN
+            UPDATE public.cuotas SET estado = 'PAGADA', actualizado_en = now()
+            WHERE id = r_c.id AND estado <> 'PAGADA';
+        ELSIF r_c.imp_cap > 0 OR r_c.imp_int > 0 THEN
+            UPDATE public.cuotas SET estado = 'PARCIAL', actualizado_en = now()
+            WHERE id = r_c.id AND estado NOT IN ('PAGADA','PARCIAL');
+        END IF;
+    END LOOP;
+
+    -- Calcular capital liberado (solo capital amortizado) RN-11
+    SELECT COALESCE(SUM(qi.importe_capital), 0) INTO v_cap_lib
+    FROM public.pagos_imputaciones qi
+    WHERE qi.pago_id = p_pago_id;
+
+    -- Reducir capital_insoluto del préstamo (siempre >=0)
+    SELECT capital_insoluto INTO v_cap_antes FROM public.prestamos WHERE id = v_prestamo_id FOR UPDATE;
+    IF v_cap_lib > 0 THEN
+        UPDATE public.prestamos
+        SET capital_insoluto = GREATEST(0, capital_insoluto - v_cap_lib),
+            actualizado_en = now()
+        WHERE id = v_prestamo_id;
+    END IF;
+
+    -- Si todas las cuotas PAGADAS, marcar préstamo PAGADO (RN-25)
+    SELECT COUNT(*) FILTER (WHERE estado <> 'PAGADA'), COUNT(*)
+    INTO v_quedan_impagas, v_total_cuotas
+    FROM public.cuotas
+    WHERE prestamo_id = v_prestamo_id;
+
+    IF v_quedan_impagas = 0 AND v_total_cuotas > 0 THEN
+        UPDATE public.prestamos
+        SET estado = 'PAGADO', capital_insoluto = 0, actualizado_en = now()
+        WHERE id = v_prestamo_id AND estado <> 'PAGADO';
+    END IF;
+
+    UPDATE public.pagos SET imputado_en = now() WHERE id = p_pago_id;
+    RETURN jsonb_build_object('ok', true, 'idempotente', false, 'capital_liberado', v_cap_lib);
+END;
+$$;
+
+COMMENT ON FUNCTION public.imputar_pago_confirmado(UUID) IS
+    'HU-07: imputa un pago CONFIRMADO a cuotas (orden antigua → nueva), distingue capital/interés, actualiza estados, reduce capital_insoluto (RN-11), pasa a PAGADO si corresponde (RN-25), sin recalcular intereses (RN-24/RN-41).';
+
+REVOKE ALL ON FUNCTION public.imputar_pago_confirmado(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.imputar_pago_confirmado(UUID) TO service_role;
