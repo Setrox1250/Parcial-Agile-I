@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import logo from '../assets/logo-prestamos.svg'
 
 // Menú por rol: solo secciones realmente implementadas (1.8.1).
 const MENU = {
@@ -73,6 +74,7 @@ export default function Layout() {
         <div className="principal">
           <div className="navegacion-superior">
             <div className="marca">
+              <img src={logo} alt="" className="marca-logo" />
               <span>Préstamos</span>
               <small>Operaciones multisucursal</small>
             </div>

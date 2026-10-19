@@ -407,3 +407,77 @@ input:focus, select:focus { border-color: #68b8bb; box-shadow: 0 0 0 3px rgba(8,
   .cola-operativa-cabecera > span { text-align: left; }
   .filtros-operativos { padding: 18px; }
 }
+
+/* Identidad visual y acceso */
+.navegacion-superior .marca { position: relative; min-height: 40px; padding: 4px 0 4px 43px; }
+.navegacion-superior .marca::before { content: none; }
+.marca-logo { position: absolute; top: 2px; left: 0; width: 36px; height: 36px; filter: drop-shadow(0 5px 10px rgba(2, 35, 45, .22)); }
+
+.login-pantalla {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.14fr) minmax(420px, .86fr);
+  min-height: 100vh;
+  padding: 0;
+  background: #f6f9fa;
+}
+.login-pantalla::before, .login-pantalla::after { display: none; }
+.login-presentacion {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: clamp(30px, 5vw, 72px);
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(78, 225, 214, .22), transparent 27%),
+    radial-gradient(circle at 88% 82%, rgba(14, 143, 155, .42), transparent 32%),
+    linear-gradient(135deg, #102b3a 0%, #133e4d 53%, #086e79 130%);
+}
+.login-presentacion::before, .login-presentacion::after { content: ''; position: absolute; border: 1px solid rgba(160, 239, 232, .16); border-radius: 50%; pointer-events: none; }
+.login-presentacion::before { width: min(43vw, 650px); height: min(43vw, 650px); right: -28%; bottom: -32%; }
+.login-presentacion::after { width: min(23vw, 330px); height: min(23vw, 330px); right: 9%; bottom: 14%; border-width: 20px; border-color: rgba(110, 225, 216, .055); }
+.login-marca, .login-marca-mobile { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 800; letter-spacing: -.02em; }
+.login-marca img, .login-marca-mobile img { width: 39px; height: 39px; filter: drop-shadow(0 7px 12px rgba(2, 30, 40, .2)); }
+.login-presentacion-contenido { position: relative; z-index: 1; max-width: 570px; margin: auto 0; padding: 80px 0; }
+.login-eyebrow { margin: 0 0 12px; color: #63d8d1; font-size: .68rem; font-weight: 800; letter-spacing: .14em; }
+.login-presentacion h1 { max-width: 540px; margin: 0 0 18px; color: #fff; font-size: clamp(2.25rem, 4vw, 4.15rem); line-height: 1.06; letter-spacing: -.055em; }
+.login-presentacion-contenido > p:not(.login-eyebrow) { max-width: 475px; color: #c2d8dc; font-size: 1.02rem; line-height: 1.65; }
+.login-beneficios { display: grid; gap: 12px; margin: 34px 0 0; padding: 0; list-style: none; color: #e8f8f7; font-size: .88rem; }
+.login-beneficios li { display: flex; align-items: center; gap: 9px; }
+.login-beneficios span { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: rgba(91, 221, 213, .16); color: #78e3dc; font-size: .68rem; font-weight: 800; }
+.login-pie-presentacion { position: relative; z-index: 1; margin: 0; color: #a6c4c9; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.login-panel { display: grid; place-items: center; padding: 36px; background: #f8fbfc; }
+.login-tarjeta {
+  width: min(100%, 430px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.login-tarjeta h2 { margin: 0 0 9px; color: #102b3a; font-size: 2rem; letter-spacing: -.045em; }
+.login-tarjeta h1::before { content: none; }
+.login-tarjeta .login-eyebrow { margin-bottom: 9px; color: #087f8c; }
+.login-subtitulo { margin: 0 0 30px; color: #6c7f8d; font-size: .91rem; line-height: 1.55; }
+.login-campo { display: flex; flex-direction: column; gap: 7px; margin-bottom: 19px; }
+.login-campo label { color: #405867; font-size: .79rem; font-weight: 720; }
+.login-campo input { min-height: 48px; padding: 11px 13px; border: 1px solid #d7e3e8; border-radius: 10px; background: #fff; font-size: .91rem; }
+.login-campo input::placeholder { color: #9aaab4; }
+.login-campo input:focus { border-color: #48aeb0; box-shadow: 0 0 0 4px rgba(8, 127, 140, .1); }
+.login-enviar { width: 100%; min-height: 48px; margin-top: 5px; border-radius: 10px; background: linear-gradient(105deg, #087f8c, #0a6975); font-size: .9rem; }
+.login-enviar:hover:not(:disabled) { background: linear-gradient(105deg, #087f8c, #055b65); }
+.login-ayuda { margin: 18px 0 0; color: #80919d; font-size: .75rem; text-align: center; }
+.login-marca-mobile { display: none; margin-bottom: 34px; color: #102b3a; }
+
+@media (max-width: 860px) {
+  .login-pantalla { grid-template-columns: 1fr; }
+  .login-presentacion { display: none; }
+  .login-panel { min-height: 100vh; padding: 32px 24px; }
+  .login-marca-mobile { display: inline-flex; }
+}
+@media (max-width: 440px) {
+  .login-panel { padding: 26px 20px; }
+  .login-tarjeta h2 { font-size: 1.75rem; }
+}
